@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// `language` is the account's interface locale — the UI is translated into it.
+// Constrained in the app layer by LOCALES in src/lib/i18n/config.ts (re-exported
+// as LANGUAGES from src/lib/profile.ts). Rendering reads the `crm_lang` cookie
+// rather than this column, so the choice also applies before sign-in; this row
+// is the durable copy, adopted into the cookie on sign-in.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  language     String   @default("en")
+  address      String?
+
+  // Recovery phone, stored normalised to E.164 by src/lib/phone.ts so that
+  // "+855 12 345 678" and "+85512345678" are the same number to the lookup.
+  // Unique because a number that reached two accounts could not identify one.
+  phone           String?   @unique
+  // Only a *verified* number can recover an account. Without this gate, anyone
+  // who briefly held a session could point recovery at a phone they own and
+  // walk back in later.
+  phoneVerifiedAt DateTime?
+
+  // The avatar lives in the row rather than on disk: it is atomic with the
+  // user, needs no upload directory or cleanup pass, and SQLite handles a
+  // quarter-megabyte blob without complaint. It is served by
+  // src/app/avatar/[userId]/route.ts, never selected into a page query —
+  // shipping the bytes through the RSC payload on every navigation is exactly
+  // what the route handler exists to avoid.
+  avatarData Bytes?
+  avatarType String?
+  // Non-null iff an avatar exists, and doubles as its cache-busting version.
+  // Lets every call site ask "is there a picture?" without reading the blob.
+  avatarUpdatedAt DateTime?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  sources       IncomeSource[]
+  entries       Entry[]
+  codes         VerificationCode[]
+  loginRequests LoginRequest[]
+}
+
+// `id` is the SHA-256 of the session token, never the token itself — a leaked
+// database still can't be used to mint a valid cookie.
+//
+// The device columns exist so Settings → Devices can answer "what is signed in
+// to my account, and can I cut it off". They are descriptive only: nothing
+// authenticates against them, so a spoofed user agent misleads the reader but
+// grants no access.
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Raw header, parsed for display by src/lib/device.ts. Stored unparsed so a
+  // better parser later can re-read the original.
+  userAgent String?
+  ipAddress String?
+  // Touched at most once every few minutes — see TOUCH_INTERVAL_MS in
+  // src/lib/auth.ts. Writing on every request would double the cost of every
+  // page load to keep a column that is only ever read on one screen.
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// A place money comes from: a salary, a shop, a rental, a dividend. Counting
+// the active ones is the fourth of the four figures the dashboard studies —
+// income concentrated in one source reads very differently from the same
+// income spread across four.
+//
+// `kind` is a String because SQLite has no enum type, constrained in the app
+// layer by SOURCE_KINDS in src/lib/finance.ts.
+model IncomeSource {
+  id        String   @id @default(cuid())
+  name      String
+  kind      String   @default("OTHER")
+  // Archiving rather than deleting keeps historical entries attributable to a
+  // source that has since dried up, while dropping it out of the active count.
+  active    Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  entries Entry[]
+
+  // Scoped per user, not globally: two people may both have a "Salary".
+  @@unique([userId, name])
+  @@index([userId, active])
+}
+
+// One line in the ledger. A single table for all three flows rather than three
+// tables, because every question the dashboard asks — totals per month, ratios
+// between them, a combined recent list — is a group-by over the same shape.
+//
+// Money is integer cents so float rounding never reaches the database, and
+// `occurredOn` is date-only at UTC midnight so no time zone can shift an entry
+// into a neighbouring month.
+model Entry {
+  id          String   @id @default(cuid())
+  type        String
+  amountCents Int
+  occurredOn  DateTime
+  // Vocabulary depends on `type` — see EXPENSE_CATEGORIES and SAVING_BUCKETS
+  // in src/lib/finance.ts. Null for income, which is classified by its source.
+  category    String?
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Only set on income. Archiving a source keeps its entries; deleting one
+  // detaches them rather than destroying the history.
+  sourceId String?
+  source   IncomeSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredOn])
+  @@index([userId, type, occurredOn])
+  @@index([sourceId])
+}
+
+// A one-time numeric code sent to a phone.
+//
+// `codeHash` is the SHA-256 of the digits, never the digits — the same reasoning
+// as Session.id. A leaked database yields no usable codes.
+//
+// `purpose` is a String constrained in the app layer by CODE_PURPOSES in
+// src/lib/verification.ts. Rows are single-use (`consumedAt`), short-lived
+// (`expiresAt`) and attempt-capped (`attempts`), because a six-digit secret is
+// only worth anything if guessing is bounded.
+model VerificationCode {
+  id         String    @id @default(cuid())
+  codeHash   String
+  purpose    String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+// A cross-device sign-in request: the handshake behind "scan the QR".
+//
+// The waiting browser holds a secret (hashed here, the plaintext in an httpOnly
+// cookie) and the QR carries only `id`. Approval on the phone therefore cannot
+// mint a session anywhere except the browser that started the request — the id
+// alone is not a credential.
+//
+// `userAgent` / `ipAddress` describe the *requesting* browser and exist to be
+// shown to the approver. A QR someone else put in front of you is the whole
+// threat here, so the approval screen has to say what it is you are letting in.
+model LoginRequest {
+  id         String    @id @default(cuid())
+  secretHash String
+  status     String    @default("PENDING")
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  approvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  // Null until approved; set to whoever approved it.
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}

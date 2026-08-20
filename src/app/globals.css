@@ -1,26 +1,325 @@
 @import "tailwindcss";
 
+/*
+  Theming
+  =======
+  Every colour in the app resolves through a CSS variable declared below, never
+  a literal Tailwind palette class. That is what makes dark mode a single
+  variable swap instead of a `dark:` variant on every element.
+
+  Three states, matching src/lib/theme.ts:
+    data-theme="light"   → always light
+    data-theme="dark"    → always dark
+    data-theme="system"  → follows prefers-color-scheme (the default)
+
+  The attribute is rendered server-side from the `crm_theme` cookie, so the
+  first paint is already correct — there is no flash and no blocking script.
+*/
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #fcfcfd;
+  --surface: #ffffff;
+  --surface-sunken: #f7f7f9;
+  --border: #e8e8ed;
+  --text: #1a1a1f;
+  --muted: #6e6e7a;
+  --hover: #f4f4f5;
+  --hover-soft: #fafafa;
+
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-fg: #ffffff;
+  --focus-ring: #e0e7ff;
+
+  --placeholder: #a1a1aa;
+  --backdrop: rgb(24 24 27 / 0.2);
+  --avatar: #e4e4e7;
+  --avatar-fg: #3f3f46;
+  --track: #f4f4f5;
+
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-fg: #ffffff;
+  --danger-surface: #fef2f2;
+  --danger-text: #b91c1c;
+  --danger-border: #fca5a5;
+  --danger-ring: #fee2e2;
+
+  --success-surface: #ecfdf5;
+  --success-text: #047857;
+
+  --badge-neutral-bg: #f4f4f5;
+  --badge-neutral-fg: #3f3f46;
+  --badge-neutral-ring: #e4e4e7;
+  --badge-indigo-bg: #eef2ff;
+  --badge-indigo-fg: #4338ca;
+  --badge-indigo-ring: #c7d2fe;
+  --badge-emerald-bg: #ecfdf5;
+  --badge-emerald-fg: #047857;
+  --badge-emerald-ring: #a7f3d0;
+  --badge-amber-bg: #fffbeb;
+  --badge-amber-fg: #b45309;
+  --badge-amber-ring: #fde68a;
+  --badge-rose-bg: #fff1f2;
+  --badge-rose-fg: #be123c;
+  --badge-rose-ring: #fecdd3;
+
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/*
+  Dark values are declared twice — once for the explicit opt-in and once behind
+  the media query for "system". Kept as two literal blocks rather than one
+  selector list so that a browser which fails to parse `[data-theme=…]` still
+  honours the media query, and vice versa.
+*/
+:root[data-theme="dark"] {
+  --canvas: #0b0b0f;
+  --surface: #131319;
+  --surface-sunken: #1a1a22;
+  --border: #272730;
+  --text: #ededf2;
+  --muted: #9797a6;
+  --hover: #1e1e26;
+  --hover-soft: #191920;
+
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-fg: #ffffff;
+  --focus-ring: rgb(99 102 241 / 0.35);
+
+  --placeholder: #5f5f6b;
+  --backdrop: rgb(0 0 0 / 0.55);
+  --avatar: #2a2a34;
+  --avatar-fg: #d4d4d8;
+  --track: #24242c;
+
+  --danger: #dc2626;
+  --danger-hover: #ef4444;
+  --danger-fg: #ffffff;
+  --danger-surface: #2a1215;
+  --danger-text: #fca5a5;
+  --danger-border: #7f1d1d;
+  --danger-ring: rgb(220 38 38 / 0.3);
+
+  --success-surface: #0c2c22;
+  --success-text: #6ee7b7;
+
+  --badge-neutral-bg: #24242c;
+  --badge-neutral-fg: #d4d4d8;
+  --badge-neutral-ring: #35353f;
+  --badge-indigo-bg: #201d47;
+  --badge-indigo-fg: #a5b4fc;
+  --badge-indigo-ring: #3730a3;
+  --badge-emerald-bg: #0c2c22;
+  --badge-emerald-fg: #6ee7b7;
+  --badge-emerald-ring: #065f46;
+  --badge-amber-bg: #2e2210;
+  --badge-amber-fg: #fcd34d;
+  --badge-amber-ring: #92400e;
+  --badge-rose-bg: #2e1319;
+  --badge-rose-fg: #fda4af;
+  --badge-rose-ring: #9f1239;
+
+  color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root[data-theme="system"] {
+    --canvas: #0b0b0f;
+    --surface: #131319;
+    --surface-sunken: #1a1a22;
+    --border: #272730;
+    --text: #ededf2;
+    --muted: #9797a6;
+    --hover: #1e1e26;
+    --hover-soft: #191920;
+
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --accent-fg: #ffffff;
+    --focus-ring: rgb(99 102 241 / 0.35);
+
+    --placeholder: #5f5f6b;
+    --backdrop: rgb(0 0 0 / 0.55);
+    --avatar: #2a2a34;
+    --avatar-fg: #d4d4d8;
+    --track: #24242c;
+
+    --danger: #dc2626;
+    --danger-hover: #ef4444;
+    --danger-fg: #ffffff;
+    --danger-surface: #2a1215;
+    --danger-text: #fca5a5;
+    --danger-border: #7f1d1d;
+    --danger-ring: rgb(220 38 38 / 0.3);
+
+    --success-surface: #0c2c22;
+    --success-text: #6ee7b7;
+
+    --badge-neutral-bg: #24242c;
+    --badge-neutral-fg: #d4d4d8;
+    --badge-neutral-ring: #35353f;
+    --badge-indigo-bg: #201d47;
+    --badge-indigo-fg: #a5b4fc;
+    --badge-indigo-ring: #3730a3;
+    --badge-emerald-bg: #0c2c22;
+    --badge-emerald-fg: #6ee7b7;
+    --badge-emerald-ring: #065f46;
+    --badge-amber-bg: #2e2210;
+    --badge-amber-fg: #fcd34d;
+    --badge-amber-ring: #92400e;
+    --badge-rose-bg: #2e1319;
+    --badge-rose-fg: #fda4af;
+    --badge-rose-ring: #9f1239;
+
+    color-scheme: dark;
   }
 }
 
+/*
+  `inline` keeps the generated utilities pointing at the variables above rather
+  than baking the current value in — without it, `bg-surface` would freeze to
+  the light colour and the dark blocks would have no effect.
+*/
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-hover: var(--hover);
+  --color-hover-soft: var(--hover-soft);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-focus-ring: var(--focus-ring);
+
+  --color-placeholder: var(--placeholder);
+  --color-backdrop: var(--backdrop);
+  --color-avatar: var(--avatar);
+  --color-avatar-fg: var(--avatar-fg);
+  --color-track: var(--track);
+
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-text: var(--danger-text);
+  --color-danger-border: var(--danger-border);
+  --color-danger-ring: var(--danger-ring);
+
+  --color-success-surface: var(--success-surface);
+  --color-success-text: var(--success-text);
+
+  /* Latin from Geist, Khmer from Noto Sans Khmer — the browser picks per glyph,
+     so a mixed en/km string renders correctly without swapping stacks. */
+  --font-sans: var(--font-geist-sans), var(--font-noto-khmer), ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--text);
+}
+
+/* Khmer stacks taller than Latin: extra leading keeps subscript consonants
+   from clipping against tight table rows. */
+:root[lang^="km"] body {
+  line-height: 1.6;
+}
+
+/* --- pill badges -------------------------------------------------------
+   One base class plus a tone, so the status/stage maps carry two class names
+   instead of a bag of palette utilities that would each need a dark variant. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding-inline: 0.5rem;
+  padding-block: 0.125rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  white-space: nowrap;
+  background-color: var(--badge-bg);
+  color: var(--badge-fg);
+  box-shadow: inset 0 0 0 1px var(--badge-ring);
+}
+
+.badge-neutral {
+  --badge-bg: var(--badge-neutral-bg);
+  --badge-fg: var(--badge-neutral-fg);
+  --badge-ring: var(--badge-neutral-ring);
+}
+.badge-indigo {
+  --badge-bg: var(--badge-indigo-bg);
+  --badge-fg: var(--badge-indigo-fg);
+  --badge-ring: var(--badge-indigo-ring);
+}
+.badge-emerald {
+  --badge-bg: var(--badge-emerald-bg);
+  --badge-fg: var(--badge-emerald-fg);
+  --badge-ring: var(--badge-emerald-ring);
+}
+.badge-amber {
+  --badge-bg: var(--badge-amber-bg);
+  --badge-fg: var(--badge-amber-fg);
+  --badge-ring: var(--badge-amber-ring);
+}
+.badge-rose {
+  --badge-bg: var(--badge-rose-bg);
+  --badge-fg: var(--badge-rose-fg);
+  --badge-ring: var(--badge-rose-ring);
+}
+
+/* Native controls follow the theme: `color-scheme` above handles the select
+   arrow and scrollbars; this covers the dropdown list itself. */
+select option {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+/* Slide-over + backdrop motion for the drawers. */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes drawer-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility animate-drawer-in {
+  animation: drawer-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@utility animate-drawer-in-left {
+  animation: drawer-in-left 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@utility animate-backdrop-in {
+  animation: backdrop-in 220ms ease-out;
 }
