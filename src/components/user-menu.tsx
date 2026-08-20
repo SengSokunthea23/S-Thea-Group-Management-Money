@@ -14,9 +14,12 @@ import type { Theme } from "@/lib/theme";
 export function UserMenu({
   user,
   theme,
+  compact = false,
 }: {
   user: SessionUser;
   theme: Theme;
+  /** Collapsed rail: the avatar alone, with the panel still full width. */
+  compact?: boolean;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -51,7 +54,11 @@ export function UserMenu({
       {open ? (
         <div
           role="menu"
-          className="absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-md border border-border bg-surface shadow-lg"
+          // The panel keeps its own width when the rail is narrow — a language
+          // and theme switcher cannot usefully be squeezed into 64px.
+          className={`absolute bottom-full mb-1 overflow-hidden rounded-md border border-border bg-surface shadow-lg ${
+            compact ? "left-2 w-60" : "left-3 right-3"
+          }`}
         >
           {/*
             Language and theme live here rather than buried in Settings: they
@@ -97,7 +104,10 @@ export function UserMenu({
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover-soft"
+        title={compact ? `${user.name} · ${user.email}` : undefined}
+        className={`flex w-full items-center rounded-md py-1.5 text-left transition-colors hover:bg-hover-soft ${
+          compact ? "justify-center px-1" : "gap-2.5 px-2"
+        }`}
       >
         <Avatar
           userId={user.id}
@@ -105,23 +115,37 @@ export function UserMenu({
           avatarUpdatedAt={user.avatarUpdatedAt}
           size={28}
         />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{user.name}</span>
-          <span className="block truncate text-xs text-muted">{user.email}</span>
-        </span>
-        <svg
-          className="size-4 shrink-0 text-muted"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m7.5 8.5 2.5-2.5 2.5 2.5m-5 3 2.5 2.5 2.5-2.5" />
-        </svg>
+        {compact ? null : (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">
+                {user.name}
+              </span>
+              <span className="block truncate text-xs text-muted">
+                {user.email}
+              </span>
+            </span>
+            <ChevronIcon />
+          </>
+        )}
       </button>
     </div>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg
+      className="size-4 shrink-0 text-muted"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m7.5 8.5 2.5-2.5 2.5 2.5m-5 3 2.5 2.5 2.5-2.5" />
+    </svg>
   );
 }

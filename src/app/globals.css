@@ -72,52 +72,59 @@
   the media query for "system". Kept as two literal blocks rather than one
   selector list so that a browser which fails to parse `[data-theme=…]` still
   honours the media query, and vice versa.
+
+  The scale deliberately stops short of black. A near-black canvas maximises
+  contrast on paper and costs you everything else: surfaces stop reading as
+  raised, borders disappear into their background, and a bright text colour
+  glares. Starting the canvas around #16161b leaves room for `surface`,
+  `sunken` and `hover` to sit visibly apart from each other, which is what
+  makes the interface legible rather than merely dark.
 */
 :root[data-theme="dark"] {
-  --canvas: #0b0b0f;
-  --surface: #131319;
-  --surface-sunken: #1a1a22;
-  --border: #272730;
+  --canvas: #16161b;
+  --surface: #1e1e25;
+  --surface-sunken: #26262e;
+  --border: #34343f;
   --text: #ededf2;
-  --muted: #9797a6;
-  --hover: #1e1e26;
-  --hover-soft: #191920;
+  --muted: #a3a3b2;
+  --hover: #2c2c35;
+  --hover-soft: #24242c;
 
   --accent: #6366f1;
   --accent-hover: #818cf8;
   --accent-fg: #ffffff;
   --focus-ring: rgb(99 102 241 / 0.35);
 
-  --placeholder: #5f5f6b;
+  --placeholder: #6b6b78;
   --backdrop: rgb(0 0 0 / 0.55);
-  --avatar: #2a2a34;
+  --avatar: #36363f;
   --avatar-fg: #d4d4d8;
-  --track: #24242c;
+  --track: #30303a;
 
   --danger: #dc2626;
   --danger-hover: #ef4444;
   --danger-fg: #ffffff;
-  --danger-surface: #2a1215;
+  --danger-surface: #34191d;
   --danger-text: #fca5a5;
   --danger-border: #7f1d1d;
   --danger-ring: rgb(220 38 38 / 0.3);
 
-  --success-surface: #0c2c22;
+  --success-surface: #12362b;
   --success-text: #6ee7b7;
 
-  --badge-neutral-bg: #24242c;
+  --badge-neutral-bg: #2f2f38;
   --badge-neutral-fg: #d4d4d8;
-  --badge-neutral-ring: #35353f;
-  --badge-indigo-bg: #201d47;
+  --badge-neutral-ring: #41414c;
+  --badge-indigo-bg: #282455;
   --badge-indigo-fg: #a5b4fc;
   --badge-indigo-ring: #3730a3;
-  --badge-emerald-bg: #0c2c22;
+  --badge-emerald-bg: #12362b;
   --badge-emerald-fg: #6ee7b7;
   --badge-emerald-ring: #065f46;
-  --badge-amber-bg: #2e2210;
+  --badge-amber-bg: #382b16;
   --badge-amber-fg: #fcd34d;
   --badge-amber-ring: #92400e;
-  --badge-rose-bg: #2e1319;
+  --badge-rose-bg: #381a20;
   --badge-rose-fg: #fda4af;
   --badge-rose-ring: #9f1239;
 
@@ -126,50 +133,50 @@
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
-    --canvas: #0b0b0f;
-    --surface: #131319;
-    --surface-sunken: #1a1a22;
-    --border: #272730;
+    --canvas: #16161b;
+    --surface: #1e1e25;
+    --surface-sunken: #26262e;
+    --border: #34343f;
     --text: #ededf2;
-    --muted: #9797a6;
-    --hover: #1e1e26;
-    --hover-soft: #191920;
+    --muted: #a3a3b2;
+    --hover: #2c2c35;
+    --hover-soft: #24242c;
 
     --accent: #6366f1;
     --accent-hover: #818cf8;
     --accent-fg: #ffffff;
     --focus-ring: rgb(99 102 241 / 0.35);
 
-    --placeholder: #5f5f6b;
+    --placeholder: #6b6b78;
     --backdrop: rgb(0 0 0 / 0.55);
-    --avatar: #2a2a34;
+    --avatar: #36363f;
     --avatar-fg: #d4d4d8;
-    --track: #24242c;
+    --track: #30303a;
 
     --danger: #dc2626;
     --danger-hover: #ef4444;
     --danger-fg: #ffffff;
-    --danger-surface: #2a1215;
+    --danger-surface: #34191d;
     --danger-text: #fca5a5;
     --danger-border: #7f1d1d;
     --danger-ring: rgb(220 38 38 / 0.3);
 
-    --success-surface: #0c2c22;
+    --success-surface: #12362b;
     --success-text: #6ee7b7;
 
-    --badge-neutral-bg: #24242c;
+    --badge-neutral-bg: #2f2f38;
     --badge-neutral-fg: #d4d4d8;
-    --badge-neutral-ring: #35353f;
-    --badge-indigo-bg: #201d47;
+    --badge-neutral-ring: #41414c;
+    --badge-indigo-bg: #282455;
     --badge-indigo-fg: #a5b4fc;
     --badge-indigo-ring: #3730a3;
-    --badge-emerald-bg: #0c2c22;
+    --badge-emerald-bg: #12362b;
     --badge-emerald-fg: #6ee7b7;
     --badge-emerald-ring: #065f46;
-    --badge-amber-bg: #2e2210;
+    --badge-amber-bg: #382b16;
     --badge-amber-fg: #fcd34d;
     --badge-amber-ring: #92400e;
-    --badge-rose-bg: #2e1319;
+    --badge-rose-bg: #381a20;
     --badge-rose-fg: #fda4af;
     --badge-rose-ring: #9f1239;
 
@@ -275,6 +282,21 @@ body {
   --badge-bg: var(--badge-rose-bg);
   --badge-fg: var(--badge-rose-fg);
   --badge-ring: var(--badge-rose-ring);
+}
+
+/*
+  Scroll without a visible bar.
+  For a one-line strip of tabs the bar is pure noise: it overlaps the active
+  tab's underline and, on Windows, renders a full arrow-and-thumb widget for a
+  few pixels of travel. The strip still scrolls by wheel, drag, and keyboard,
+  and it only overflows at all on a narrow screen.
+*/
+.scroll-strip {
+  scrollbar-width: none;
+}
+
+.scroll-strip::-webkit-scrollbar {
+  display: none;
 }
 
 /* Native controls follow the theme: `color-scheme` above handles the select

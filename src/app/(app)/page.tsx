@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Breakdown } from "@/components/breakdown";
+import { PageHeader } from "@/components/page-header";
 import { PeriodTabs } from "@/components/period-tabs";
 import { TrendChart } from "@/components/trend-chart";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,11 +20,14 @@ import {
 } from "@/lib/analysis";
 import {
   ENTRY_TYPE_STYLES,
-  categoryLabel,
+  bucketLabel,
   entryTypeLabel,
   toEntryType,
   toIsoDate,
 } from "@/lib/finance";
+import { BudgetPanel } from "@/components/budget-panel";
+import { budgetProgress, type CategoryRecord } from "@/lib/expense";
+import { ensureCategories } from "@/lib/expense-server";
 import type { Translator } from "@/lib/i18n/translate";
 
 export const metadata = { title: "Analysis" };
@@ -61,14 +65,29 @@ export default async function AnalysisPage({
     ...(start ? { occurredOn: { gte: start } } : {}),
   };
 
-  const [periodEntries, trendEntries, activeSources, recent, entryCount] =
-    await Promise.all([
+  await ensureCategories(user.id);
+
+  // Budgets are always a month-to-date question, whatever period the four
+  // figures above are showing: a monthly limit measured over twelve months
+  // would compare a cap against twelve times the spending.
+  const monthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  );
+
+  const [
+    periodEntries,
+    trendEntries,
+    activeSources,
+    recent,
+    entryCount,
+    budgetRows,
+  ] = await Promise.all([
       prisma.entry.findMany({
         where: inPeriod,
         select: {
           type: true,
           amountCents: true,
-          category: true,
+          expenseCategory: { select: { id: true, name: true, tone: true } },
           source: { select: { name: true } },
         },
       }),
@@ -97,9 +116,29 @@ export default async function AnalysisPage({
           note: true,
           createdAt: true,
           source: { select: { name: true } },
+          expenseCategory: { select: { name: true, tone: true } },
         },
       }),
       prisma.entry.count({ where: inPeriod }),
+      // Only categories that actually carry a budget — a meter without a limit
+      // has nothing to measure.
+      prisma.expenseCategory.findMany({
+        where: { userId: user.id, active: true, budgetCents: { not: null } },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          budgetCents: true,
+          tone: true,
+          active: true,
+          sortOrder: true,
+          _count: { select: { entries: true } },
+          entries: {
+            where: { occurredOn: { gte: monthStart } },
+            select: { amountCents: true },
+          },
+        },
+      }),
     ]);
 
   // --- aggregate --------------------------------------------------------
@@ -111,11 +150,11 @@ export default async function AnalysisPage({
     const type = toEntryType(entry.type);
     totals[type] += entry.amountCents;
 
-    if (type === "EXPENSE" && entry.category) {
-      byCategory.set(
-        entry.category,
-        (byCategory.get(entry.category) ?? 0) + entry.amountCents,
-      );
+    if (type === "EXPENSE") {
+      // Spending whose category was deleted still counts toward the total; it
+      // groups under a dash rather than vanishing from the breakdown.
+      const name = entry.expenseCategory?.name ?? t("common.empty");
+      byCategory.set(name, (byCategory.get(name) ?? 0) + entry.amountCents);
     }
 
     if (type === "INCOME") {
@@ -128,9 +167,8 @@ export default async function AnalysisPage({
 
   const summary = summarise(totals, activeSources);
 
-  const expenseSlices = toSlices(byCategory, (key) =>
-    categoryLabel(t, "EXPENSE", key),
-  );
+  // Categories carry their own text now, so the key *is* the label.
+  const expenseSlices = toSlices(byCategory, (key) => key);
   const incomeSlices = toSlices(bySource, (key) => key);
 
   const trendBuckets = bucketByMonth(
@@ -150,6 +188,23 @@ export default async function AnalysisPage({
     trendTotals.SAVING += bucket.totals.SAVING;
   }
 
+  const budgets: CategoryRecord[] = budgetRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    budgetCents: row.budgetCents,
+    tone: row.tone,
+    active: row.active,
+    sortOrder: row.sortOrder,
+    spentCents: row.entries.reduce((sum, entry) => sum + entry.amountCents, 0),
+    entryCount: row._count.entries,
+  }));
+
+  const overBudgetCount = budgets.filter(
+    (category) =>
+      budgetProgress(category.spentCents, category.budgetCents).status ===
+      "over",
+  ).length;
+
   // How lopsided the income is. One source at 100% is a different risk profile
   // from four at 25% each, which is why the count alone isn't the whole story.
   const topSourceShare =
@@ -157,17 +212,19 @@ export default async function AnalysisPage({
 
   return (
     <>
-      {/* min-h rather than a fixed h-16: four period labels in Khmer are far
-          wider than in English, and on a narrow screen the row needs to wrap
-          instead of pushing the page into a horizontal scroll. */}
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-surface px-8 py-3">
-        <h1 className="text-[15px] font-semibold tracking-tight">
-          {t("dashboard.title")}
-        </h1>
-        <PeriodTabs current={period} />
-      </header>
+      <PageHeader>
+        {/* min-h rather than a fixed h-16: four period labels in Khmer are far
+            wider than in English, and on a narrow screen the row needs to wrap
+            instead of pushing the page into a horizontal scroll. */}
+        <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
+          <h1 className="text-[15px] font-semibold tracking-tight">
+            {t("dashboard.title")}
+          </h1>
+          <PeriodTabs current={period} />
+        </div>
+      </PageHeader>
 
-      <div className="space-y-6 px-8 py-8">
+      <div className="space-y-6 px-4 py-6 sm:px-8 sm:py-8">
         {/* The four figures. */}
         <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
           <Metric
@@ -214,7 +271,9 @@ export default async function AnalysisPage({
             two of them, not a fifth independent measurement. */}
         <NetBanner netCents={summary.netCents} t={t} />
 
-        <TrendChart buckets={trendBuckets} totals={trendTotals} t={t} />
+        <TrendChart buckets={trendBuckets} totals={trendTotals} />
+
+        <BudgetPanel categories={budgets} overCount={overBudgetCount} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Breakdown
@@ -262,7 +321,9 @@ export default async function AnalysisPage({
                       <div className="truncate text-sm font-medium">
                         {type === "INCOME"
                           ? (entry.source?.name ?? t("common.empty"))
-                          : categoryLabel(t, type, entry.category)}
+                          : type === "EXPENSE"
+                            ? (entry.expenseCategory?.name ?? t("common.empty"))
+                            : bucketLabel(t, entry.category)}
                       </div>
                       <div className="truncate text-[13px] text-muted">
                         {entry.note ?? formatIsoDate(toIsoDate(entry.occurredOn))}

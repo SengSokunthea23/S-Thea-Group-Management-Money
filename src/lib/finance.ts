@@ -1,4 +1,9 @@
 import { parseDateInput, toIsoDate, toUtcDate } from "@/lib/date";
+import {
+  isCategoryTone,
+  isPaymentMethod,
+  type AttachmentRecord,
+} from "@/lib/expense";
 import type { Translator } from "@/lib/i18n/translate";
 
 // SQLite has no native enum type, so every classification below is stored as a
@@ -36,21 +41,9 @@ export function entryTypeLabel(t: Translator, type: EntryType): string {
   return t(`entries.type.${type}`);
 }
 
-// --- expense categories -------------------------------------------------
-
-export const EXPENSE_CATEGORIES = [
-  "HOUSING",
-  "FOOD",
-  "TRANSPORT",
-  "UTILITIES",
-  "HEALTH",
-  "EDUCATION",
-  "LEISURE",
-  "DEBT",
-  "OTHER",
-] as const;
-
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+// Expense categories are no longer a list here. They are rows the user owns —
+// see ExpenseCategory in the schema, and DEFAULT_EXPENSE_CATEGORIES in
+// src/lib/expense.ts for the set a new account starts with.
 
 // --- savings buckets ----------------------------------------------------
 
@@ -65,31 +58,26 @@ export const SAVING_BUCKETS = [
 export type SavingBucket = (typeof SAVING_BUCKETS)[number];
 
 /**
- * Which vocabulary `Entry.category` draws on depends on `Entry.type`. Income is
- * absent on purpose: an income line is classified by *where it came from*, which
- * is the source relation, not a free-standing category.
+ * `Entry.category` now holds savings buckets only.
+ *
+ * Expenses moved to a relation when categories became user-defined — see
+ * ExpenseCategory in the schema — and income has always been classified by its
+ * source. A bucket stays a fixed vocabulary because "emergency fund" means the
+ * same thing to everyone, which is exactly what is not true of "Leisure".
  */
 export function categoriesFor(type: EntryType): readonly string[] {
-  if (type === "EXPENSE") return EXPENSE_CATEGORIES;
-  if (type === "SAVING") return SAVING_BUCKETS;
-  return [];
+  return type === "SAVING" ? SAVING_BUCKETS : [];
 }
 
 export function isValidCategory(type: EntryType, value: string): boolean {
   return categoriesFor(type).includes(value);
 }
 
-export function categoryLabel(
-  t: Translator,
-  type: EntryType,
-  category: string | null,
-): string {
-  if (!category) return t("common.empty");
-  if (!isValidCategory(type, category)) return category;
-
-  return type === "EXPENSE"
-    ? t(`entries.expenseCategory.${category as ExpenseCategory}`)
-    : t(`entries.savingBucket.${category as SavingBucket}`);
+/** Savings bucket name. Expense categories carry their own text on the row. */
+export function bucketLabel(t: Translator, bucket: string | null): string {
+  if (!bucket) return t("common.empty");
+  if (!isValidCategory("SAVING", bucket)) return bucket;
+  return t(`entries.savingBucket.${bucket as SavingBucket}`);
 }
 
 // --- income sources -----------------------------------------------------
@@ -135,10 +123,21 @@ export type EntryRecord = {
   type: string;
   amountCents: number;
   occurredOn: string; // ISO date, "YYYY-MM-DD"
+  /** Savings bucket. Null for income and expenses. */
   category: string | null;
   note: string | null;
   sourceId: string | null;
   sourceName: string | null;
+
+  // Expenses only.
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryTone: string | null;
+  merchant: string | null;
+  paymentMethod: string | null;
+  /** Non-null when the entry was posted from a recurring template. */
+  recurringId: string | null;
+  attachments: AttachmentRecord[];
 };
 
 export type SourceRecord = {
@@ -156,6 +155,7 @@ export type SourceRecord = {
 export type SourceOption = { id: string; name: string; kind: string };
 
 export { toIsoDate, toUtcDate };
+export type { AttachmentRecord };
 
 // --- money --------------------------------------------------------------
 
@@ -180,8 +180,12 @@ export type EntryField =
   | "amount"
   | "occurredOn"
   | "category"
+  | "categoryId"
   | "sourceId"
-  | "note";
+  | "merchant"
+  | "paymentMethod"
+  | "note"
+  | "attachments";
 
 export type EntryFieldErrors = Partial<Record<EntryField, string>>;
 
@@ -189,8 +193,12 @@ export type EntryInput = {
   type: EntryType;
   amountCents: number;
   occurredOn: Date;
+  /** Savings bucket, or null. */
   category: string | null;
   sourceId: string | null;
+  categoryId: string | null;
+  merchant: string | null;
+  paymentMethod: string | null;
   note: string | null;
 };
 
@@ -218,6 +226,9 @@ export function parseEntryInput(
   const occurredOn = text(formData, "occurredOn");
   const category = text(formData, "category");
   const sourceId = text(formData, "sourceId");
+  const categoryId = text(formData, "categoryId");
+  const merchant = text(formData, "merchant");
+  const paymentMethod = text(formData, "paymentMethod");
   const note = text(formData, "note");
 
   const fieldErrors: EntryFieldErrors = {};
@@ -251,17 +262,48 @@ export function parseEntryInput(
     }
   }
 
-  // Income is classified by source; expenses and savings by category. Each
-  // branch also clears the other's field so a value left behind by switching
-  // the type in the drawer is never persisted.
+  /*
+    Each flow is classified differently, and each branch clears the other two's
+    fields. That matters because the drawer lets you switch type mid-edit: a
+    category picked while it said Expense must not ride along once it says
+    Income, or the entry would carry a classification that contradicts it.
+
+      INCOME   → sourceId       (which source paid you)
+      EXPENSE  → categoryId     (a row the user owns; existence checked by the
+                                 action, which is the only place that knows who
+                                 is asking)
+      SAVING   → category       (a fixed bucket, validated right here)
+  */
   let resolvedCategory: string | null = null;
   let resolvedSourceId: string | null = null;
+  let resolvedCategoryId: string | null = null;
+  let resolvedMerchant: string | null = null;
+  let resolvedPaymentMethod: string | null = null;
 
   if (type === "INCOME") {
     if (!sourceId) {
       fieldErrors.sourceId = t("entries.errors.sourceRequired");
     } else {
       resolvedSourceId = sourceId;
+    }
+  } else if (type === "EXPENSE") {
+    if (!categoryId) {
+      fieldErrors.categoryId = t("entries.errors.categoryRequired");
+    } else {
+      resolvedCategoryId = categoryId;
+    }
+
+    if (merchant.length > 120) {
+      fieldErrors.merchant = t("entries.errors.merchantTooLong");
+    } else {
+      resolvedMerchant = optional(merchant);
+    }
+
+    // Blank is allowed — not everyone tracks how they paid.
+    if (paymentMethod && !isPaymentMethod(paymentMethod)) {
+      fieldErrors.paymentMethod = t("entries.errors.paymentMethodInvalid");
+    } else {
+      resolvedPaymentMethod = optional(paymentMethod);
     }
   } else if (!category) {
     fieldErrors.category = t("entries.errors.categoryRequired");
@@ -287,6 +329,9 @@ export function parseEntryInput(
       occurredOn: date as Date,
       category: resolvedCategory,
       sourceId: resolvedSourceId,
+      categoryId: resolvedCategoryId,
+      merchant: resolvedMerchant,
+      paymentMethod: resolvedPaymentMethod,
       note: optional(note),
     },
   };
@@ -341,5 +386,172 @@ export function parseSourceInput(
   return {
     ok: true,
     data: { name, kind: kind as SourceKind, active, note: optional(note) },
+  };
+}
+
+// --- expense category validation ----------------------------------------
+
+export type CategoryField = "name" | "budget" | "tone";
+
+export type CategoryFieldErrors = Partial<Record<CategoryField, string>>;
+
+export type CategoryInput = {
+  name: string;
+  budgetCents: number | null;
+  tone: string;
+  active: boolean;
+};
+
+export type CategoryParseResult =
+  | { ok: true; data: CategoryInput }
+  | { ok: false; fieldErrors: CategoryFieldErrors };
+
+export function parseCategoryInput(
+  formData: FormData,
+  t: Translator,
+): CategoryParseResult {
+  const name = text(formData, "name");
+  const budget = text(formData, "budget");
+  const tone = text(formData, "tone");
+  const active = formData.get("active") !== null;
+
+  const fieldErrors: CategoryFieldErrors = {};
+
+  if (!name) {
+    fieldErrors.name = t("categories.errors.nameRequired");
+  } else if (name.length > 60) {
+    fieldErrors.name = t("categories.errors.nameTooLong");
+  }
+
+  // Empty means "track it, don't cap it" — deliberately distinct from 0, which
+  // would be a budget of nothing.
+  let budgetCents: number | null = null;
+  if (budget) {
+    const parsed = parseMoneyToCents(budget);
+    if (parsed === null) {
+      fieldErrors.budget = t("categories.errors.budgetInvalid");
+    } else if (parsed <= 0) {
+      fieldErrors.budget = t("categories.errors.budgetPositive");
+    } else if (parsed > 1_000_000_000_00) {
+      fieldErrors.budget = t("entries.errors.amountTooLarge");
+    } else {
+      budgetCents = parsed;
+    }
+  }
+
+  if (!isCategoryTone(tone)) {
+    fieldErrors.tone = t("categories.errors.toneInvalid");
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, fieldErrors };
+  }
+
+  return { ok: true, data: { name, budgetCents, tone, active } };
+}
+
+// --- recurring expense validation ---------------------------------------
+
+export type RecurringField =
+  | "amount"
+  | "categoryId"
+  | "dayOfMonth"
+  | "merchant"
+  | "paymentMethod"
+  | "note"
+  | "startsOn";
+
+export type RecurringFieldErrors = Partial<Record<RecurringField, string>>;
+
+export type RecurringInput = {
+  amountCents: number;
+  categoryId: string;
+  dayOfMonth: number;
+  merchant: string | null;
+  paymentMethod: string | null;
+  note: string | null;
+  startsOn: Date;
+  active: boolean;
+};
+
+export type RecurringParseResult =
+  | { ok: true; data: RecurringInput }
+  | { ok: false; fieldErrors: RecurringFieldErrors };
+
+export function parseRecurringInput(
+  formData: FormData,
+  t: Translator,
+): RecurringParseResult {
+  const amount = text(formData, "amount");
+  const categoryId = text(formData, "categoryId");
+  const dayOfMonth = text(formData, "dayOfMonth");
+  const merchant = text(formData, "merchant");
+  const paymentMethod = text(formData, "paymentMethod");
+  const note = text(formData, "note");
+  const startsOn = text(formData, "startsOn");
+  const active = formData.get("active") !== null;
+
+  const fieldErrors: RecurringFieldErrors = {};
+
+  const amountCents = amount ? parseMoneyToCents(amount) : null;
+  if (amountCents === null) {
+    fieldErrors.amount = t("entries.errors.amountInvalid");
+  } else if (amountCents <= 0) {
+    fieldErrors.amount = t("entries.errors.amountPositive");
+  } else if (amountCents > 1_000_000_000_00) {
+    fieldErrors.amount = t("entries.errors.amountTooLarge");
+  }
+
+  if (!categoryId) {
+    fieldErrors.categoryId = t("entries.errors.categoryRequired");
+  }
+
+  // Days beyond a month's length are kept rather than rejected: "the 31st"
+  // means "the last day" to most people, and clampDayToMonth honours that.
+  const day = Number(dayOfMonth);
+  if (!Number.isInteger(day) || day < 1 || day > 31) {
+    fieldErrors.dayOfMonth = t("recurring.errors.dayInvalid");
+  }
+
+  if (merchant.length > 120) {
+    fieldErrors.merchant = t("entries.errors.merchantTooLong");
+  }
+
+  if (paymentMethod && !isPaymentMethod(paymentMethod)) {
+    fieldErrors.paymentMethod = t("entries.errors.paymentMethodInvalid");
+  }
+
+  if (note.length > 280) {
+    fieldErrors.note = t("entries.errors.noteTooLong");
+  }
+
+  let start: Date | null = null;
+  if (!startsOn) {
+    fieldErrors.startsOn = t("entries.errors.dateRequired");
+  } else {
+    const iso = parseDateInput(startsOn);
+    if (!iso) {
+      fieldErrors.startsOn = t("entries.errors.dateInvalid");
+    } else {
+      start = toUtcDate(iso);
+    }
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, fieldErrors };
+  }
+
+  return {
+    ok: true,
+    data: {
+      amountCents: amountCents as number,
+      categoryId,
+      dayOfMonth: day,
+      merchant: optional(merchant),
+      paymentMethod: optional(paymentMethod),
+      note: optional(note),
+      startsOn: start as Date,
+      active,
+    },
   };
 }

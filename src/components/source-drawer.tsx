@@ -85,7 +85,7 @@ export function SourceDrawer({ mode, source, onClose }: SourceDrawerProps) {
             type="button"
             onClick={onClose}
             aria-label={t("common.closePanel")}
-            className="-mr-1.5 rounded-md p-1.5 text-muted transition-colors hover:bg-hover hover:text-text"
+            className="-mr-2.5 rounded-md p-1.5 text-muted transition-colors hover:bg-hover hover:text-text"
           >
             <svg
               className="size-4"

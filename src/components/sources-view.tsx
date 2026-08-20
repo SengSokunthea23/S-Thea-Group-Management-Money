@@ -5,6 +5,7 @@ import { deleteSource } from "@/app/(app)/sources/actions";
 import { SourceDrawer } from "@/components/source-drawer";
 import { RowActions } from "@/components/row-actions";
 import { useT } from "@/components/i18n-provider";
+import { PageHeader } from "@/components/page-header";
 import { FormError } from "@/components/form-field";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -38,34 +39,38 @@ export function SourcesView({ sources }: { sources: SourceRecord[] }) {
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b border-border bg-surface px-8">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="text-[15px] font-semibold tracking-tight">
-            {t("sources.title")}
-          </h1>
-          <span className="text-sm text-muted">
-            {t("sources.count", { count: sources.length })} ·{" "}
-            {t("sources.activeCount", { count: activeCount })}
-          </span>
+      <PageHeader>
+        <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-8">
+          <div className="flex min-w-0 items-baseline gap-2.5">
+            <h1 className="truncate text-[15px] font-semibold tracking-tight">
+              {t("sources.title")}
+            </h1>
+            {/* The counts are context, not the point — first thing to go when
+                the row runs out of room. */}
+            <span className="hidden shrink-0 text-sm text-muted sm:inline">
+              {t("sources.count", { count: sources.length })} ·{" "}
+              {t("sources.activeCount", { count: activeCount })}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDrawer({ mode: "create" })}
+            className="shrink-0 whitespace-nowrap rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            {t("sources.new")}
+          </button>
         </div>
+      </PageHeader>
 
-        <button
-          type="button"
-          onClick={() => setDrawer({ mode: "create" })}
-          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
-        >
-          {t("sources.new")}
-        </button>
-      </header>
-
-      <div className="space-y-5 px-8 py-8">
+      <div className="space-y-5 px-4 py-6 sm:px-8 sm:py-8">
         {error ? <FormError>{error}</FormError> : null}
 
         {sources.length === 0 ? (
           <EmptyState onCreate={() => setDrawer({ mode: "create" })} />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-surface">
-            <table className="w-full border-collapse text-sm">
+          <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+            <table className="w-full min-w-[34rem] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
                   <Th>{t("sources.columnSource")}</Th>

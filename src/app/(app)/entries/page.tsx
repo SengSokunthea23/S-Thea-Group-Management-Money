@@ -3,6 +3,8 @@ import { EntriesView } from "@/components/entries-view";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toIsoDate, type EntryRecord, type SourceOption } from "@/lib/finance";
+import type { CategoryOption } from "@/lib/expense";
+import { ensureCategories, postDueRecurring } from "@/lib/expense-server";
 
 export const metadata = { title: "Ledger" };
 
@@ -14,7 +16,13 @@ export default async function EntriesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [rows, sources] = await Promise.all([
+  // There is no scheduler, so the ledger is where the app catches up on what
+  // repeats. Done before the read, so anything posted appears in the same view
+  // rather than only after a refresh.
+  await ensureCategories(user.id);
+  const postedCount = await postDueRecurring(user.id);
+
+  const [rows, sources, categories] = await Promise.all([
     prisma.entry.findMany({
       where: { userId: user.id },
       orderBy: [{ occurredOn: "desc" }, { createdAt: "desc" }],
@@ -26,16 +34,32 @@ export default async function EntriesPage() {
         category: true,
         note: true,
         sourceId: true,
+        merchant: true,
+        paymentMethod: true,
+        categoryId: true,
+        recurringId: true,
         source: { select: { name: true } },
+        expenseCategory: { select: { name: true, tone: true } },
+        // Metadata only — the bytes are served by /attachment/[id], never
+        // shipped through this page's payload.
+        attachments: {
+          select: { id: true, mimeType: true, fileName: true, byteSize: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
     }),
-    // Only active sources are offered for new income — an archived one is a
-    // source you have stopped receiving from, and the drawer would otherwise
-    // invite you to book fresh income against it.
+    // Only active sources and categories are offered for new entries: an
+    // archived one is something you have stopped using, and the drawer would
+    // otherwise invite you to book fresh activity against it.
     prisma.incomeSource.findMany({
       where: { userId: user.id, active: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true, kind: true },
+    }),
+    prisma.expenseCategory.findMany({
+      where: { userId: user.id, active: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, tone: true },
     }),
   ]);
 
@@ -50,9 +74,24 @@ export default async function EntriesPage() {
     note: row.note,
     sourceId: row.sourceId,
     sourceName: row.source?.name ?? null,
+    categoryId: row.categoryId,
+    categoryName: row.expenseCategory?.name ?? null,
+    categoryTone: row.expenseCategory?.tone ?? null,
+    merchant: row.merchant,
+    paymentMethod: row.paymentMethod,
+    recurringId: row.recurringId,
+    attachments: row.attachments,
   }));
 
-  const options: SourceOption[] = sources;
+  const sourceOptions: SourceOption[] = sources;
+  const categoryOptions: CategoryOption[] = categories;
 
-  return <EntriesView entries={entries} sources={options} />;
+  return (
+    <EntriesView
+      entries={entries}
+      sources={sourceOptions}
+      categories={categoryOptions}
+      postedCount={postedCount}
+    />
+  );
 }

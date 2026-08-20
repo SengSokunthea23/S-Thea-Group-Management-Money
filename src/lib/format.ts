@@ -41,10 +41,27 @@ function memoise<T>(build: (tag: string) => T): (locale: Locale) => T {
   };
 }
 
-const CURRENCY = new Intl.NumberFormat(MONEY_TAG, {
+/*
+  Two formatters, chosen per value: whole amounts print clean, fractional ones
+  print exactly.
+
+  A single rounded formatter was inherited from when this app tracked deals
+  worth tens of thousands, where cents were noise. On a ledger of receipts it
+  lies — enter 24.50 and the row reports $25, which is not what you spent and
+  will not reconcile against a bank statement. Rounding a *displayed* figure is
+  only ever safe when the rounding is invisible.
+*/
+const CURRENCY_WHOLE = new Intl.NumberFormat(MONEY_TAG, {
   style: "currency",
   currency: "USD",
   maximumFractionDigits: 0,
+});
+
+const CURRENCY_EXACT = new Intl.NumberFormat(MONEY_TAG, {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 const COMPACT_CURRENCY = new Intl.NumberFormat(MONEY_TAG, {
@@ -80,7 +97,9 @@ const monthLong = memoise(
  * otherwise.
  */
 export function formatCurrency(valueCents: number): string {
-  return CURRENCY.format(valueCents / 100);
+  const formatter =
+    valueCents % 100 === 0 ? CURRENCY_WHOLE : CURRENCY_EXACT;
+  return formatter.format(valueCents / 100);
 }
 
 /** Axis and peak labels, where "$120K" has to fit under a bar. */

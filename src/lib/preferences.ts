@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { LOCALE_COOKIE, toLocale, type Locale } from "@/lib/i18n/config";
 import { createTranslator, type Translator } from "@/lib/i18n/translate";
 import { THEME_COOKIE, toTheme, type Theme } from "@/lib/theme";
+import { NAV_COOKIE, toNavState, type NavState } from "@/lib/nav";
 
 /**
  * Server-side reads of the two display preferences.
@@ -25,6 +26,11 @@ export const getLocale = cache(async (): Promise<Locale> => {
 export const getTheme = cache(async (): Promise<Theme> => {
   const store = await cookies();
   return toTheme(store.get(THEME_COOKIE)?.value);
+});
+
+export const getNavState = cache(async (): Promise<NavState> => {
+  const store = await cookies();
+  return toNavState(store.get(NAV_COOKIE)?.value);
 });
 
 /** The server-side counterpart of `useT()` — same keys, same output. */

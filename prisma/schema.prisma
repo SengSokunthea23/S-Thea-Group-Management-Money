@@ -50,6 +50,9 @@ model User {
   sessions      Session[]
   sources       IncomeSource[]
   entries       Entry[]
+  categories    ExpenseCategory[]
+  recurring     RecurringExpense[]
+  attachments   Attachment[]
   codes         VerificationCode[]
   loginRequests LoginRequest[]
 }
@@ -121,10 +124,20 @@ model Entry {
   type        String
   amountCents Int
   occurredOn  DateTime
-  // Vocabulary depends on `type` — see EXPENSE_CATEGORIES and SAVING_BUCKETS
-  // in src/lib/finance.ts. Null for income, which is classified by its source.
+  // Savings buckets only — see SAVING_BUCKETS in src/lib/finance.ts. Expenses
+  // moved to the `categoryId` relation below when categories became
+  // user-defined; income is classified by its source. Kept for savings because
+  // a bucket is a fixed vocabulary, not something worth a table.
   category    String?
   note        String?
+
+  // Expenses only. Free text rather than a table: a payee is a label you
+  // remember, not an entity with its own attributes, and forcing one row per
+  // corner shop would make adding an expense a two-step chore.
+  merchant String?
+  // Constrained in the app layer by PAYMENT_METHODS in src/lib/expense.ts.
+  paymentMethod String?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -136,9 +149,114 @@ model Entry {
   sourceId String?
   source   IncomeSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
 
+  // Only set on expenses. SetNull for the same reason as `sourceId`: deleting a
+  // category must not take the spending with it.
+  categoryId String?
+  expenseCategory ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Set when the entry was posted automatically from a template, so a
+  // catch-up run can tell what it has already written.
+  recurringId String?
+  recurring   RecurringExpense? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+
+  attachments Attachment[]
+
   @@index([userId, occurredOn])
   @@index([userId, type, occurredOn])
   @@index([sourceId])
+  @@index([categoryId])
+  @@index([recurringId])
+}
+
+// A user-defined expense category, optionally carrying a monthly budget.
+//
+// A table rather than the old fixed list because the nine built-ins fit nobody
+// exactly, and because a budget has to live somewhere — "Food" is not a place
+// you can hang a number. New accounts are given the built-ins as a starting
+// point (see DEFAULT_EXPENSE_CATEGORIES in src/lib/expense.ts); from there they
+// are the user's to rename, retire, or replace.
+model ExpenseCategory {
+  id          String   @id @default(cuid())
+  name        String
+  // Monthly ceiling in integer cents. Null means "track it, don't cap it" —
+  // distinct from 0, which would mean "never spend anything here".
+  budgetCents Int?
+  // Badge tone, constrained in the app layer by CATEGORY_TONES.
+  tone        String   @default("neutral")
+  // Archiving rather than deleting keeps historical entries classified.
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  entries   Entry[]
+  recurring RecurringExpense[]
+
+  @@unique([userId, name])
+  @@index([userId, active])
+}
+
+// A photograph of a receipt, or an invoice PDF.
+//
+// Stored in the row for the same reasons as User.avatarData: atomic with its
+// entry, no upload directory to keep in step, and never selected into a page
+// query — src/app/attachment/[id]/route.ts is what serves the bytes.
+//
+// `userId` is denormalised off the entry so the serving route can check
+// ownership without a join on every image request.
+model Attachment {
+  id        String   @id @default(cuid())
+  data      Bytes
+  mimeType  String
+  fileName  String?
+  byteSize  Int
+  createdAt DateTime @default(now())
+
+  entryId String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+  @@index([userId])
+}
+
+// A template for an expense that repeats every month.
+//
+// Posting is lazy: there is no scheduler in this app, so the ledger asks "what
+// is due?" when it loads and writes anything outstanding. `lastPostedMonth`
+// holds a "YYYY-MM" key, which makes that catch-up idempotent — two tabs
+// loading at once cannot both post January.
+model RecurringExpense {
+  id            String   @id @default(cuid())
+  amountCents   Int
+  // Clamped to the month's real length at posting time, so 31 still works in
+  // February.
+  dayOfMonth    Int      @default(1)
+  merchant      String?
+  paymentMethod String?
+  note          String?
+  active        Boolean  @default(true)
+  // "YYYY-MM" of the most recent month posted, or null if never.
+  lastPostedMonth String?
+  // Nothing is posted for months before this.
+  startsOn      DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId String?
+  category   ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  entries Entry[]
+
+  @@index([userId, active])
 }
 
 // A one-time numeric code sent to a phone.

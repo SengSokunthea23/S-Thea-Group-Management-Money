@@ -5,18 +5,21 @@ import { deleteEntry } from "@/app/(app)/entries/actions";
 import { EntryDrawer } from "@/components/entry-drawer";
 import { RowActions } from "@/components/row-actions";
 import { useT } from "@/components/i18n-provider";
+import { PageHeader } from "@/components/page-header";
+import { FormSuccess } from "@/components/form-field";
 import { formatIsoDate } from "@/lib/date";
 import { formatCurrency } from "@/lib/format";
 import {
   ENTRY_TYPES,
   ENTRY_TYPE_STYLES,
-  categoryLabel,
+  bucketLabel,
   entryTypeLabel,
   toEntryType,
   type EntryRecord,
   type EntryType,
   type SourceOption,
 } from "@/lib/finance";
+import { paymentMethodLabel, toneClass, type CategoryOption } from "@/lib/expense";
 
 type DrawerState =
   | { mode: "create" }
@@ -28,9 +31,14 @@ type Filter = EntryType | "ALL";
 export function EntriesView({
   entries,
   sources,
+  categories,
+  postedCount,
 }: {
   entries: EntryRecord[];
   sources: SourceOption[];
+  categories: CategoryOption[];
+  /** Recurring expenses written by the catch-up on this page load. */
+  postedCount: number;
 }) {
   const t = useT();
   const [drawer, setDrawer] = useState<DrawerState>(null);
@@ -52,30 +60,44 @@ export function EntriesView({
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b border-border bg-surface px-8">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="text-[15px] font-semibold tracking-tight">
-            {t("entries.title")}
-          </h1>
-          <span className="text-sm text-muted">
-            {t("entries.count", { count: visible.length })}
-          </span>
+      <PageHeader>
+        <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-8">
+          {/* min-w-0 lets the title truncate instead of shoving the button off
+              the edge on a narrow screen. */}
+          <div className="flex min-w-0 items-baseline gap-2.5">
+            <h1 className="truncate text-[15px] font-semibold tracking-tight">
+              {t("entries.title")}
+            </h1>
+            <span className="hidden shrink-0 text-sm text-muted sm:inline">
+              {t("entries.count", { count: visible.length })}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDrawer({ mode: "create" })}
+            className="shrink-0 whitespace-nowrap rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            {t("entries.new")}
+          </button>
         </div>
+      </PageHeader>
 
-        <button
-          type="button"
-          onClick={() => setDrawer({ mode: "create" })}
-          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
-        >
-          {t("entries.new")}
-        </button>
-      </header>
+      <div className="space-y-5 px-4 py-6 sm:px-8 sm:py-8">
+        {/* Says what the app did on your behalf while you were away, rather
+            than letting entries appear unannounced. */}
+        {postedCount > 0 ? (
+          <FormSuccess>
+            {t("recurring.posted", { count: postedCount })}
+          </FormSuccess>
+        ) : null}
 
-      <div className="space-y-5 px-8 py-8">
+        {/* Four filters, and the Khmer labels are wide — the strip scrolls
+            inside itself rather than pushing the page sideways. */}
         <div
           role="group"
           aria-label={t("entries.columnType")}
-          className="flex w-fit gap-0.5 rounded-md bg-sunken p-0.5"
+          className="scroll-strip -mx-1 flex max-w-full gap-0.5 overflow-x-auto overflow-y-hidden px-1"
         >
           {(["ALL", ...ENTRY_TYPES] as Filter[]).map((option) => (
             <button
@@ -83,7 +105,7 @@ export function EntriesView({
               type="button"
               onClick={() => setFilter(option)}
               aria-pressed={option === filter}
-              className={`rounded-[5px] px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`shrink-0 whitespace-nowrap rounded-[5px] px-3 py-1.5 text-sm font-medium transition-colors ${
                 option === filter
                   ? "bg-surface text-text shadow-sm"
                   : "text-muted hover:text-text"
@@ -103,13 +125,20 @@ export function EntriesView({
             onCreate={() => setDrawer({ mode: "create" })}
           />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-surface">
-            <table className="w-full border-collapse text-sm">
+          /* A ledger row carries a date, a type, a category, an amount and two
+             controls; below about 640px that cannot be squeezed without making
+             every column unreadable. The table scrolls inside its own box so
+             the page body never scrolls sideways. */
+          <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+            <table className="w-full min-w-[38rem] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
                   <Th>{t("entries.columnDate")}</Th>
                   <Th>{t("entries.columnType")}</Th>
                   <Th>{t("entries.columnDetail")}</Th>
+                  <Th className="hidden xl:table-cell">
+                    {t("entries.columnMerchant")}
+                  </Th>
                   <Th className="hidden lg:table-cell">
                     {t("entries.columnNote")}
                   </Th>
@@ -136,12 +165,51 @@ export function EntriesView({
                           {entryTypeLabel(t, type)}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 font-medium">
-                        {/* Income is identified by its source, everything else
-                            by its category — the two never both apply. */}
-                        {type === "INCOME"
-                          ? (entry.sourceName ?? t("common.empty"))
-                          : categoryLabel(t, type, entry.category)}
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* Each flow is identified differently: income by its
+                              source, an expense by its category badge, savings
+                              by its bucket. Never more than one applies. */}
+                          {type === "INCOME" ? (
+                            <span className="font-medium">
+                              {entry.sourceName ?? t("common.empty")}
+                            </span>
+                          ) : type === "EXPENSE" ? (
+                            <span className={toneClass(entry.categoryTone ?? "neutral")}>
+                              {entry.categoryName ?? t("common.empty")}
+                            </span>
+                          ) : (
+                            <span className="font-medium">
+                              {bucketLabel(t, entry.category)}
+                            </span>
+                          )}
+
+                          {entry.attachments.length > 0 ? (
+                            <span
+                              title={t("entries.fieldReceipts")}
+                              className="inline-flex items-center gap-1 text-xs text-muted"
+                            >
+                              <PaperclipIcon />
+                              {entry.attachments.length}
+                            </span>
+                          ) : null}
+
+                          {entry.recurringId ? (
+                            <span className="badge badge-neutral">
+                              {t("entries.fromRecurring")}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="hidden max-w-[12rem] px-5 py-3.5 text-muted xl:table-cell">
+                        <span className="line-clamp-1">
+                          {entry.merchant ?? t("common.empty")}
+                        </span>
+                        {entry.paymentMethod ? (
+                          <span className="block text-[12px]">
+                            {paymentMethodLabel(t, entry.paymentMethod)}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="hidden max-w-xs px-5 py-3.5 text-muted lg:table-cell">
                         <span className="line-clamp-1">
@@ -178,6 +246,7 @@ export function EntriesView({
           mode={drawer.mode}
           entry={drawer.mode === "edit" ? drawer.entry : undefined}
           sources={sources}
+          categories={categories}
           // Adding while a filter is on almost always means "another one of
           // these", so the drawer opens on the type you were looking at.
           defaultType={filter === "ALL" ? undefined : filter}
@@ -185,6 +254,23 @@ export function EntriesView({
         />
       ) : null}
     </>
+  );
+}
+
+function PaperclipIcon() {
+  return (
+    <svg
+      className="size-3.5"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14.5 9.5 9.2 14.8a3.25 3.25 0 0 1-4.6-4.6l6-6a2.25 2.25 0 0 1 3.18 3.18l-6 6a1.25 1.25 0 0 1-1.77-1.77l5.3-5.3" />
+    </svg>
   );
 }
 

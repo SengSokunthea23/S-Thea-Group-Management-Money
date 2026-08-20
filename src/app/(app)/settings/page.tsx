@@ -41,54 +41,70 @@ export default async function ProfileSettingsPage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="max-w-xl space-y-8">
-      {/*
-        Appearance sits first because it is the section that changes the page
-        you are looking at — the feedback is immediate, so the control belongs
-        where the eye lands. Language appears here and in the profile form
-        below: this one is instant and browser-local, that one saves to the
-        account. Both write the same preference.
-      */}
-      <Section
-        heading={t("settings.appearanceHeading")}
-        description={t("settings.appearanceDescription")}
-      >
-        <div className="space-y-3">
-          <LanguageSwitcher />
-          <ThemeSwitcher current={theme} />
-        </div>
-      </Section>
+    /*
+      Two columns from `lg` up, because one narrow column left most of a desktop
+      screen empty and pushed the recovery phone below the fold for no reason.
 
-      <Section
-        heading={t("settings.profileHeading")}
-        description={t("settings.profileDescription")}
-      >
-        <ProfileForm
-          user={{
-            ...user,
-            avatarUrl: avatarUrl(session.id, user.avatarUpdatedAt),
-          }}
-        />
-      </Section>
+      Two explicit columns rather than a flowing grid: the sections are wildly
+      different heights, and letting a grid place them would strand a short card
+      beside a tall one with a gap under it. Split by weight instead — the tall
+      profile form takes one side, the three shorter cards stack on the other,
+      and the two sides come out roughly level.
 
-      <Section
-        heading={t("settings.passwordHeading")}
-        description={t("settings.passwordDescription")}
-      >
-        <PasswordForm />
-      </Section>
+      Below `lg` they stack in source order, which is why Appearance leads: it
+      is the section that changes the page you are looking at, so it belongs
+      where the eye lands.
+    */
+    <div className="grid items-start gap-6 lg:grid-cols-2">
+      <div className="space-y-6">
+        {/*
+          Language appears here and in the profile form: this one is instant and
+          browser-local, that one saves to the account. Both write the same
+          preference.
+        */}
+        <Section
+          heading={t("settings.appearanceHeading")}
+          description={t("settings.appearanceDescription")}
+        >
+          <div className="space-y-3">
+            <LanguageSwitcher />
+            <ThemeSwitcher current={theme} />
+          </div>
+        </Section>
 
-      {/* Below the password on purpose: it is the way back in when the password
-          above is the thing you have lost. */}
-      <Section
-        heading={t("phone.heading")}
-        description={t("phone.description")}
-      >
-        <PhoneForm
-          phone={user.phone ? formatPhone(user.phone) : null}
-          verified={user.phoneVerifiedAt !== null}
-        />
-      </Section>
+        <Section
+          heading={t("settings.profileHeading")}
+          description={t("settings.profileDescription")}
+        >
+          <ProfileForm
+            user={{
+              ...user,
+              avatarUrl: avatarUrl(session.id, user.avatarUpdatedAt),
+            }}
+          />
+        </Section>
+      </div>
+
+      <div className="space-y-6">
+        <Section
+          heading={t("settings.passwordHeading")}
+          description={t("settings.passwordDescription")}
+        >
+          <PasswordForm />
+        </Section>
+
+        {/* After the password on purpose: it is the way back in when the
+            password beside it is the thing you have lost. */}
+        <Section
+          heading={t("phone.heading")}
+          description={t("phone.description")}
+        >
+          <PhoneForm
+            phone={user.phone ? formatPhone(user.phone) : null}
+            verified={user.phoneVerifiedAt !== null}
+          />
+        </Section>
+      </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { SettingsTabs } from "@/components/settings-tabs";
 import { getT } from "@/lib/preferences";
 
@@ -10,15 +11,23 @@ export default async function SettingsLayout({
 
   return (
     <>
-      <header className="flex h-16 items-center border-b border-border bg-surface px-8">
+      {/*
+        Only the tabs are pinned. The title reads "Settings" on every one of
+        these five screens, so holding it against the top spends a strip of a
+        phone screen restating something that never changes — while the tabs
+        underneath are the part you actually reach for.
+      */}
+      <div className="flex h-16 items-center bg-surface px-4 sm:px-8">
         <h1 className="text-[15px] font-semibold tracking-tight">
           {t("settings.title")}
         </h1>
-      </header>
+      </div>
 
-      <SettingsTabs />
+      <PageHeader bordered={false}>
+        <SettingsTabs />
+      </PageHeader>
 
-      <div className="px-8 py-8">{children}</div>
+      <div className="px-4 py-6 sm:px-8 sm:py-8">{children}</div>
     </>
   );
 }

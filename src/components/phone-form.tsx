@@ -22,6 +22,22 @@ import { CODE_LENGTH } from "@/lib/verification-constants";
  * It saves on its own because it has a second step: a saved number is not yet a
  * usable one, and folding that round-trip into "Save profile" would mean the
  * button sometimes finishes and sometimes hands back a code box.
+ *
+ * Which step is showing is *derived* from the two action results, not stored.
+ * Two earlier attempts got this wrong in different ways, and both failures came
+ * from the same instinct — keeping a copy of something the action results
+ * already say:
+ *
+ *   - Adjusting a `useState` during render meant two conditions each undoing
+ *     the other every pass, which React stops as an infinite loop.
+ *   - Setting it from inside the action reducer looked safer, but `savePhone`
+ *     calls `revalidatePath`, and the re-render that follows discarded the
+ *     update — the code was sent and the form silently stayed put.
+ *
+ * Derivation has neither failure mode: there is no second copy to disagree.
+ * The one genuine piece of local state is `dismissed`, which exists because
+ * "I want to go back and edit the number" is a fact about the reader that no
+ * action result can carry.
  */
 export function PhoneForm({
   phone,
@@ -33,51 +49,34 @@ export function PhoneForm({
 }) {
   const t = useT();
 
-  // Once a code has been sent this holds the masked number; clearing it drops
-  // back to the number field.
-  const [awaiting, setAwaiting] = useState<{
-    masked: string;
-    devCode?: string;
-  } | null>(null);
-
-  /*
-    The step is moved by the actions themselves, not derived from their results
-    during render.
-
-    Deriving it looked tidier and was wrong: `savePhone` keeps reporting
-    step: "verify" forever, so the moment a successful confirm cleared
-    `awaiting`, the next render saw "verify" with nothing awaiting and set it
-    straight back — which re-triggered the clear. Two conditions, each undoing
-    the other, for as long as React would allow. Transitions belong at the point
-    something actually happens.
-  */
   const [saveState, saveAction] = useActionState<PhoneState, FormData>(
-    async (prev, formData) => {
-      const result = await savePhone(prev, formData);
-      if (result?.ok && result.step === "verify") {
-        setAwaiting({ masked: result.maskedPhone, devCode: result.devCode });
-      }
-      return result;
-    },
+    savePhone,
+    null,
+  );
+  const [confirmState, confirmAction] = useActionState<PhoneState, FormData>(
+    confirmPhone,
     null,
   );
 
-  const [confirmState, confirmAction] = useActionState<PhoneState, FormData>(
-    async (prev, formData) => {
-      const result = await confirmPhone(prev, formData);
-      if (result?.ok && result.step === "verified") setAwaiting(null);
-      return result;
-    },
-    null,
-  );
+  // Set only by the Cancel button, cleared only by sending a new code. Both are
+  // event handlers, so neither can loop.
+  const [dismissed, setDismissed] = useState(false);
+
+  const sent =
+    saveState?.ok && saveState.step === "verify" ? saveState : null;
+  const justVerified =
+    confirmState?.ok && confirmState.step === "verified" ? confirmState : null;
+
+  const awaiting = sent && !justVerified && !dismissed ? sent : null;
 
   if (awaiting) {
     return (
       <form action={confirmAction} className="space-y-4">
         <p className="text-sm text-muted">
-          {t("recovery.codeSent", { phone: awaiting.masked })}
+          {t("recovery.codeSent", { phone: awaiting.maskedPhone })}
         </p>
 
+        {/* Development only — the server refuses to return this in production. */}
         {awaiting.devCode ? (
           <p className="rounded-md border border-border bg-sunken px-3 py-2 text-sm">
             {t("recovery.devCode", { code: awaiting.devCode })}
@@ -107,7 +106,7 @@ export function PhoneForm({
           />
           <button
             type="button"
-            onClick={() => setAwaiting(null)}
+            onClick={() => setDismissed(true)}
             className="rounded-md border border-border px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-hover-soft hover:text-text"
           >
             {t("common.cancel")}
@@ -118,7 +117,13 @@ export function PhoneForm({
   }
 
   return (
-    <form action={saveAction} className="space-y-4">
+    <form
+      action={saveAction}
+      // A fresh send supersedes any earlier dismissal, so the code step shows
+      // again rather than being suppressed by a decision about the last one.
+      onSubmit={() => setDismissed(false)}
+      className="space-y-4"
+    >
       <Field label={t("phone.field")} name="phone">
         <input
           id="phone"
@@ -138,16 +143,12 @@ export function PhoneForm({
           {verified ? (
             <span className="badge badge-emerald">{t("phone.isVerified")}</span>
           ) : (
-            <span className="badge badge-amber">
-              {t("phone.notVerified")}
-            </span>
+            <span className="badge badge-amber">{t("phone.notVerified")}</span>
           )}
         </p>
       ) : null}
 
-      {confirmState?.ok && confirmState.step === "verified" ? (
-        <FormSuccess>{confirmState.message}</FormSuccess>
-      ) : null}
+      {justVerified ? <FormSuccess>{justVerified.message}</FormSuccess> : null}
       {saveState?.ok && saveState.step === "cleared" ? (
         <FormSuccess>{saveState.message}</FormSuccess>
       ) : null}

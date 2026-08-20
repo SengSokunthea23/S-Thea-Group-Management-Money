@@ -7,6 +7,7 @@ import {
   type EntryActionState,
 } from "@/app/(app)/entries/actions";
 import { useT } from "@/components/i18n-provider";
+import { AttachmentField } from "@/components/attachment-field";
 import {
   Field,
   FormError,
@@ -16,8 +17,8 @@ import {
 import { DATE_PLACEHOLDER, formatIsoDate } from "@/lib/date";
 import {
   ENTRY_TYPES,
+  bucketLabel,
   categoriesFor,
-  categoryLabel,
   entryTypeLabel,
   toEntryType,
   type EntryFieldErrors,
@@ -25,11 +26,17 @@ import {
   type EntryType,
   type SourceOption,
 } from "@/lib/finance";
+import {
+  PAYMENT_METHODS,
+  paymentMethodLabel,
+  type CategoryOption,
+} from "@/lib/expense";
 
 type EntryDrawerProps = {
   mode: "create" | "edit";
   entry?: EntryRecord;
   sources: SourceOption[];
+  categories: CategoryOption[];
   /** Preselected when the ledger is filtered — the type you were looking at. */
   defaultType?: EntryType;
   onClose: () => void;
@@ -39,6 +46,7 @@ export function EntryDrawer({
   mode,
   entry,
   sources,
+  categories,
   defaultType,
   onClose,
 }: EntryDrawerProps) {
@@ -52,8 +60,8 @@ export function EntryDrawer({
   );
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
-  // The type drives which of the classification fields is shown, so it is the
-  // one input this drawer tracks in state rather than leaving uncontrolled.
+  // The type drives which classification fields are shown, so it is the one
+  // input this drawer tracks in state rather than leaving uncontrolled.
   const [type, setType] = useState<EntryType>(
     entry ? toEntryType(entry.type) : (defaultType ?? "EXPENSE"),
   );
@@ -77,8 +85,8 @@ export function EntryDrawer({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const categories = categoriesFor(type);
-  const isIncome = type === "INCOME";
+  const buckets = categoriesFor(type);
+  const editingSameType = entry ? toEntryType(entry.type) === type : false;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -170,9 +178,7 @@ export function EntryDrawer({
                 id="amount"
                 name="amount"
                 inputMode="decimal"
-                defaultValue={
-                  entry ? (entry.amountCents / 100).toString() : ""
-                }
+                defaultValue={entry ? (entry.amountCents / 100).toString() : ""}
                 placeholder="1200"
                 autoComplete="off"
                 className={inputClass(fieldErrors.amount)}
@@ -204,7 +210,7 @@ export function EntryDrawer({
               <p className="text-xs text-muted">{t("entries.dateHint")}</p>
             </Field>
 
-            {isIncome ? (
+            {type === "INCOME" ? (
               <Field
                 label={t("entries.fieldSource")}
                 name="sourceId"
@@ -226,41 +232,96 @@ export function EntryDrawer({
                   ))}
                 </select>
               </Field>
-            ) : (
+            ) : null}
+
+            {type === "EXPENSE" ? (
+              <>
+                <Field
+                  label={t("entries.fieldCategory")}
+                  name="categoryId"
+                  error={fieldErrors.categoryId}
+                >
+                  <select
+                    id="categoryId"
+                    name="categoryId"
+                    defaultValue={
+                      editingSameType ? (entry?.categoryId ?? "") : ""
+                    }
+                    className={inputClass(fieldErrors.categoryId)}
+                  >
+                    <option value="" disabled>
+                      {t("entries.selectCategory")}
+                    </option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field
+                  label={t("entries.fieldMerchant")}
+                  name="merchant"
+                  error={fieldErrors.merchant}
+                  optional
+                >
+                  <input
+                    id="merchant"
+                    name="merchant"
+                    defaultValue={entry?.merchant ?? ""}
+                    placeholder={t("entries.merchantPlaceholder")}
+                    autoComplete="off"
+                    className={inputClass(fieldErrors.merchant)}
+                  />
+                </Field>
+
+                <Field
+                  label={t("entries.fieldPaymentMethod")}
+                  name="paymentMethod"
+                  error={fieldErrors.paymentMethod}
+                  optional
+                >
+                  <select
+                    id="paymentMethod"
+                    name="paymentMethod"
+                    defaultValue={entry?.paymentMethod ?? ""}
+                    className={inputClass(fieldErrors.paymentMethod)}
+                  >
+                    <option value="">{t("entries.noPaymentMethod")}</option>
+                    {PAYMENT_METHODS.map((method) => (
+                      <option key={method} value={method}>
+                        {paymentMethodLabel(t, method)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </>
+            ) : null}
+
+            {type === "SAVING" ? (
               <Field
-                label={
-                  type === "SAVING"
-                    ? t("entries.fieldBucket")
-                    : t("entries.fieldCategory")
-                }
+                label={t("entries.fieldBucket")}
                 name="category"
                 error={fieldErrors.category}
               >
                 <select
                   id="category"
                   name="category"
-                  // Keyed by type so switching Expense ↔ Saving remounts the
-                  // control; without it React would keep the old selection,
-                  // which is not in the new vocabulary.
-                  key={type}
-                  defaultValue={
-                    entry && toEntryType(entry.type) === type
-                      ? (entry.category ?? "")
-                      : ""
-                  }
+                  defaultValue={editingSameType ? (entry?.category ?? "") : ""}
                   className={inputClass(fieldErrors.category)}
                 >
                   <option value="" disabled>
                     {t("entries.selectCategory")}
                   </option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {categoryLabel(t, type, category)}
+                  {buckets.map((bucket) => (
+                    <option key={bucket} value={bucket}>
+                      {bucketLabel(t, bucket)}
                     </option>
                   ))}
                 </select>
               </Field>
-            )}
+            ) : null}
 
             <Field
               label={t("entries.fieldNote")}
@@ -277,6 +338,23 @@ export function EntryDrawer({
                 className={`${inputClass(fieldErrors.note)} resize-y`}
               />
             </Field>
+
+            {/* Receipts belong to spending. Income and savings are movements
+                between your own accounts; there is no slip to keep. */}
+            {type === "EXPENSE" ? (
+              <>
+                <AttachmentField
+                  existing={editingSameType ? (entry?.attachments ?? []) : []}
+                  fieldName="attachments"
+                  removeFieldName="removeAttachments"
+                />
+                {fieldErrors.attachments ? (
+                  <p className="text-sm text-danger-text">
+                    {fieldErrors.attachments}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
 
             {state && !state.ok && state.formError ? (
               <FormError>{state.formError}</FormError>
