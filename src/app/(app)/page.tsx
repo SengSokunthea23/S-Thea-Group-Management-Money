@@ -403,7 +403,7 @@ function Metric({
       <div
         className={`mt-1.5 text-2xl font-semibold tracking-tight tabular-nums ${
           tone === "income"
-            ? "text-(--badge-emerald-fg)"
+            ? "text-[var(--badge-emerald-fg)]"
             : tone === "expense"
               ? "text-[var(--badge-rose-fg)]"
               : ""
