@@ -78,7 +78,7 @@ export const en = {
     expenseRate: "{percent}% of income",
     noIncomeYet: "No income recorded yet",
 
-    net: "Net",
+    net: "Net balance",
     netPositive: "Income exceeded expenses",
     netNegative: "Expenses exceeded income",
     netEven: "Income matched expenses",

@@ -77,7 +77,7 @@ export const km: Dictionary = {
     expenseRate: "{percent}% នៃចំណូល",
     noIncomeYet: "មិនទាន់មានចំណូលកត់ត្រាទេ",
 
-    net: "សល់សុទ្ធ",
+    net: "ចំនួនលុយសល់",
     netPositive: "ចំណូលលើសចំណាយ",
     netNegative: "ចំណាយលើសចំណូល",
     netEven: "ចំណូលស្មើនឹងចំណាយ",
