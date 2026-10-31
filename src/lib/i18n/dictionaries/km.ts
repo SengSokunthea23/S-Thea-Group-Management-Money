@@ -81,6 +81,8 @@ export const km: Dictionary = {
     trendTitle: "ចំណូល ចំណាយ និងប្រាក់សន្សំតាមខែ",
     trendSubtitle: "{from} – {to}",
     trendEmpty: "មិនទាន់មានកំណត់ត្រាក្នុងរយៈពេល ១២ ខែចុងក្រោយទេ។",
+    chartBar: "ក្រាហ្វិកជួរឈរ",
+    chartLine: "ក្រាហ្វិកបន្ទាត់",
     trendLabel:
       "ចំណូល ចំណាយ និងប្រាក់សន្សំតាមខែ ពី {from} ដល់ {to}។ ចំណូល {income}, ចំណាយ {expenses}, ប្រាក់សន្សំ {savings}។",
     trendTableCaption: "ចំណូល ចំណាយ និងប្រាក់សន្សំតាមខែ",

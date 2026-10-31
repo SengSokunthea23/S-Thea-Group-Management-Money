@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
   Theming
@@ -213,6 +214,23 @@
 
   --color-success-surface: var(--success-surface);
   --color-success-text: var(--success-text);
+
+  /* shadcn/ui vocabulary, aliased onto the tokens above so the library
+     components inherit light/dark theming with no second palette. muted is
+     deliberately NOT redefined: here it is the secondary text colour. */
+  --color-background: var(--canvas);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-fg);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--text);
+  --color-destructive: var(--danger);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
 
   /* Latin from Geist, Khmer from Noto Sans Khmer — the browser picks per glyph,
      so a mixed en/km string renders correctly without swapping stacks. */

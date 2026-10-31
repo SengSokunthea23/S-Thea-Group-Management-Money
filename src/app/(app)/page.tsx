@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Breakdown } from "@/components/breakdown";
 import { PeriodTabs } from "@/components/period-tabs";
-import { TrendChart } from "@/components/trend-chart";
+import { TrendChart } from "@/components/charts/trend-chart";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatIsoDate } from "@/lib/date";

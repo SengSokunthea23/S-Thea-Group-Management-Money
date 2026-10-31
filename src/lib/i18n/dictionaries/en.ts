@@ -82,6 +82,8 @@ export const en = {
     trendTitle: "Income, expenses and savings by month",
     trendSubtitle: "{from} – {to}",
     trendEmpty: "Nothing recorded in the last 12 months yet.",
+    chartBar: "Bar",
+    chartLine: "Line",
     trendLabel:
       "Income, expenses and savings by month, {from} to {to}. Income {income}, expenses {expenses}, savings {savings}.",
     trendTableCaption: "Income, expenses and savings by month",
