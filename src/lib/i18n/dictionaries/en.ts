@@ -34,6 +34,10 @@ export const en = {
   },
 
   nav: {
+    collapse: "Collapse menu",
+    expand: "Expand menu",
+    groupMoney: "Money",
+    groupSetup: "Setup",
     dashboard: "Analysis",
     entries: "Ledger",
     sources: "Income sources",
@@ -74,7 +78,7 @@ export const en = {
     expenseRate: "{percent}% of income",
     noIncomeYet: "No income recorded yet",
 
-    net: "Net",
+    net: "Net balance",
     netPositive: "Income exceeded expenses",
     netNegative: "Expenses exceeded income",
     netEven: "Income matched expenses",
@@ -86,6 +90,9 @@ export const en = {
       "Income, expenses and savings by month, {from} to {to}. Income {income}, expenses {expenses}, savings {savings}.",
     trendTableCaption: "Income, expenses and savings by month",
     columnMonth: "Month",
+    chartType: "Chart type",
+    chartBars: "Bars",
+    chartLine: "Line",
 
     expenseBreakdown: "Where the money went",
     expenseBreakdownEmpty: "No expenses in this period.",
@@ -95,6 +102,13 @@ export const en = {
 
     recent: "Recent entries",
     recentEmpty: "Nothing yet. Add an entry to get started.",
+    budgets: "Budgets this month",
+    budgetsEmpty: "No category has a budget yet.",
+    budgetsAction: "Manage categories",
+    overBudgetCount: {
+      one: "{count} category over budget",
+      other: "{count} categories over budget",
+    },
 
     concentration: "Concentration",
     concentrationDetail: "Largest source is {percent}% of income",
@@ -133,6 +147,17 @@ export const en = {
     selectCategory: "Select a category…",
     dateHint: "Day first, e.g. 18/02/2025.",
     notePlaceholder: "What was this for?",
+    fieldMerchant: "Paid to",
+    fieldPaymentMethod: "Paid by",
+    fieldReceipts: "Receipts and invoices",
+    merchantPlaceholder: "Shop or person",
+    noPaymentMethod: "Not recorded",
+    receiptsHint: "Photos or PDF invoices, up to {count}.",
+    addReceipt: "Add file",
+    removeReceipt: "Remove",
+    openReceipt: "Open",
+    fromRecurring: "Recurring",
+    columnMerchant: "Paid to",
 
     type: {
       INCOME: "Income",
@@ -172,6 +197,12 @@ export const en = {
       sourceRequired: "Choose which source this came from.",
       sourceMissing: "That source no longer exists.",
       noteTooLong: "Note must be 280 characters or fewer.",
+      merchantTooLong: "That is too long \u2014 120 characters or fewer.",
+      paymentMethodInvalid: "Choose a valid payment method.",
+      attachmentType: "Attach a JPEG, PNG, WebP or PDF.",
+      attachmentTooLarge: "That file is too large.",
+      attachmentTooMany: "An expense can hold {count} files.",
+      attachmentFailed: "That file could not be read.",
       deleteFailed: "Could not delete entry.",
     },
   },
@@ -222,10 +253,145 @@ export const en = {
     },
   },
 
+  expense: {
+    paymentMethod: {
+      CASH: "Cash",
+      CARD: "Card",
+      BANK: "Bank transfer",
+      OTHER: "Other",
+    },
+  },
+
+  categories: {
+    title: "Expense categories",
+    description:
+      "Your own categories, each with an optional monthly budget. Spending is measured against them on the analysis page.",
+    count: { one: "{count} category", other: "{count} categories" },
+    activeCount: { one: "{count} active", other: "{count} active" },
+    new: "New category",
+    create: "Add category",
+    editTitle: "Edit category",
+    emptyTitle: "No categories yet",
+    emptyBody: "Add the categories you actually spend money on.",
+
+    columnCategory: "Category",
+    columnBudget: "Monthly budget",
+    columnSpent: "Spent this month",
+    columnEntries: "Entries",
+
+    fieldName: "Name",
+    fieldBudget: "Monthly budget (USD)",
+    fieldTone: "Colour",
+    fieldActive: "Active",
+    namePlaceholder: "Groceries",
+    budgetHint: "Leave empty to track spending without a limit.",
+    activeHint: "Archived categories keep their history but stop being offered.",
+    archived: "Archived",
+    noBudget: "No budget",
+    remaining: "{amount} left",
+    overBy: "{amount} over",
+
+    tone: {
+      neutral: "Grey",
+      indigo: "Indigo",
+      emerald: "Green",
+      amber: "Amber",
+      rose: "Red",
+    },
+
+    errors: {
+      nameRequired: "A name is required.",
+      nameTooLong: "Name must be 60 characters or fewer.",
+      nameTaken: "You already have a category with this name.",
+      budgetInvalid: "Enter an amount like 400 or 1250.50.",
+      budgetPositive: "A budget must be more than zero.",
+      toneInvalid: "Choose a valid colour.",
+      deleteFailed: "Could not delete category.",
+      deleteHasEntries:
+        "This category has expenses. Archive it instead, or move its expenses first.",
+      missing: "That category no longer exists.",
+    },
+  },
+
+  recurring: {
+    title: "Recurring expenses",
+    description:
+      "Expenses that repeat every month. They are posted to the ledger automatically when the day arrives.",
+    count: { one: "{count} template", other: "{count} templates" },
+    new: "New recurring expense",
+    create: "Add recurring expense",
+    editTitle: "Edit recurring expense",
+    emptyTitle: "Nothing repeats yet",
+    emptyBody:
+      "Rent, utilities, a subscription \u2014 anything you would otherwise type in every month.",
+
+    columnWhat: "What",
+    columnAmount: "Amount",
+    columnDay: "Day",
+    columnLast: "Last posted",
+
+    fieldAmount: "Amount (USD)",
+    fieldCategory: "Category",
+    fieldDay: "Day of month",
+    fieldStartsOn: "Starts",
+    fieldActive: "Active",
+    dayHint: "1 to 31. A day past the end of a short month falls on its last day.",
+    startsOnHint: "Nothing is posted for months before this date.",
+    activeHint: "Paused templates stop posting but keep their history.",
+    paused: "Paused",
+    never: "Never",
+    onDay: "Day {day}",
+    posted: {
+      one: "{count} recurring expense was posted.",
+      other: "{count} recurring expenses were posted.",
+    },
+
+    errors: {
+      dayInvalid: "Choose a day between 1 and 31.",
+      deleteFailed: "Could not delete this template.",
+    },
+  },
+
+  planner: {
+    title: "Money planner",
+    subtitle: "Try numbers out. Nothing here changes your ledger.",
+    intro:
+      "Starting figures come from your last {months} months. Change anything you like.",
+
+    leftover: "Left over",
+    verdictSurplus: "This plan leaves money spare.",
+    verdictBalanced: "This plan comes out even.",
+    verdictShortfall: "This plan spends more than it earns.",
+
+    income: "Monthly income",
+    spending: "Spending",
+    saving: "Set aside",
+    savingsRate: "{percent}% of income.",
+    noCategories: "Add expense categories to plan against them.",
+    trimHint: "Cut {amount} here to break even",
+    balance: "Balance it",
+
+    splitHeading: "A common starting point",
+    splitIntro:
+      "The 50/30/20 rule of thumb, applied to your income. It is a general guide, not advice about your situation.",
+    splitNeeds: "Essentials (50%)",
+    splitWants: "Everything else (30%)",
+    splitSavings: "Set aside (20%)",
+    ceilingOk: "Your spending fits under {amount}.",
+    ceilingOver: "Your spending is {amount} above the guide.",
+    floorOk: "You are setting aside at least {amount}.",
+    floorUnder: "You are {amount} short of the guide.",
+
+    notSaved: "Nothing is saved",
+    reset: "Reset",
+  },
+
   settings: {
     title: "Settings",
     tabProfile: "Profile",
     tabMembers: "Members",
+    tabCategories: "Categories",
+    tabRecurring: "Recurring",
     tabDevices: "Devices",
 
     profileHeading: "Your information",

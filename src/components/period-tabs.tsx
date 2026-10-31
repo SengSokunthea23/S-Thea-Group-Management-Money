@@ -27,7 +27,7 @@ export function PeriodTabs({ current }: { current: Period }) {
     // first and last tab breathe without being clipped by the scroll box.
     <nav
       aria-label={t("period.label")}
-      className="-mx-1 max-w-full overflow-x-auto px-1"
+      className="scroll-strip -mx-1 max-w-full overflow-x-auto overflow-y-hidden px-1"
     >
       <div className="flex w-max gap-0.5 rounded-md bg-sunken p-0.5">
         {PERIODS.map((period) => {

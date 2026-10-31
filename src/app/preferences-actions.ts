@@ -16,6 +16,12 @@ import {
   isTheme,
   type Theme,
 } from "@/lib/theme";
+import {
+  NAV_COOKIE,
+  NAV_COOKIE_MAX_AGE,
+  isNavState,
+  type NavState,
+} from "@/lib/nav";
 
 /**
  * Display preferences are cookie-backed rather than session-backed: they have
@@ -65,4 +71,25 @@ export async function setTheme(theme: Theme): Promise<void> {
   // layout — but revalidating it keeps a hard refresh consistent with the
   // optimistic update the switcher already applied.
   revalidatePath("/", "layout");
+}
+
+/**
+ * Width of the desktop sidebar. Same shape as the theme: a non-httpOnly cookie
+ * the switcher can act on immediately, re-read on the next server render.
+ *
+ * No `revalidatePath` here. Nothing about the *content* of any page depends on
+ * this — only the rail's own width — and revalidating the whole layout to move
+ * a sidebar would refetch every figure on the dashboard for nothing.
+ */
+export async function setNavState(state: NavState): Promise<void> {
+  if (!isNavState(state)) return;
+
+  const store = await cookies();
+  store.set(NAV_COOKIE, state, {
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: NAV_COOKIE_MAX_AGE,
+  });
 }

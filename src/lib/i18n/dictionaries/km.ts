@@ -34,6 +34,10 @@ export const km: Dictionary = {
   },
 
   nav: {
+    collapse: "បង្រួមម៉ឺនុយ",
+    expand: "ពង្រីកម៉ឺនុយ",
+    groupMoney: "ហិរញ្ញវត្ថុ",
+    groupSetup: "ការរៀបចំ",
     dashboard: "ការវិភាគ",
     entries: "សៀវភៅកត់ត្រា",
     sources: "ប្រភពចំណូល",
@@ -73,7 +77,7 @@ export const km: Dictionary = {
     expenseRate: "{percent}% នៃចំណូល",
     noIncomeYet: "មិនទាន់មានចំណូលកត់ត្រាទេ",
 
-    net: "សល់សុទ្ធ",
+    net: "ចំនួនលុយសល់",
     netPositive: "ចំណូលលើសចំណាយ",
     netNegative: "ចំណាយលើសចំណូល",
     netEven: "ចំណូលស្មើនឹងចំណាយ",
@@ -85,6 +89,9 @@ export const km: Dictionary = {
       "ចំណូល ចំណាយ និងប្រាក់សន្សំតាមខែ ពី {from} ដល់ {to}។ ចំណូល {income}, ចំណាយ {expenses}, ប្រាក់សន្សំ {savings}។",
     trendTableCaption: "ចំណូល ចំណាយ និងប្រាក់សន្សំតាមខែ",
     columnMonth: "ខែ",
+    chartType: "ប្រភេទតារាង",
+    chartBars: "សសរ",
+    chartLine: "បន្ទាត់",
 
     expenseBreakdown: "លុយបានចេញទៅណា",
     expenseBreakdownEmpty: "គ្មានចំណាយក្នុងរយៈពេលនេះទេ។",
@@ -94,6 +101,13 @@ export const km: Dictionary = {
 
     recent: "កំណត់ត្រាថ្មីៗ",
     recentEmpty: "មិនទាន់មានអ្វីទេ។ បន្ថែមកំណត់ត្រាដើម្បីចាប់ផ្ដើម។",
+    budgets: "ថវិកាខែនេះ",
+    budgetsEmpty: "មិនទាន់មានប្រភេទណាមានថវិកាទេ។",
+    budgetsAction: "គ្រប់គ្រងប្រភេទ",
+    overBudgetCount: {
+      one: "ប្រភេទ {count} លើសថវិកា",
+      other: "ប្រភេទ {count} លើសថវិកា",
+    },
 
     concentration: "កម្រិតប្រមូលផ្ដុំ",
     concentrationDetail: "ប្រភពធំជាងគេស្មើ {percent}% នៃចំណូល",
@@ -132,6 +146,17 @@ export const km: Dictionary = {
     selectCategory: "ជ្រើសរើសប្រភេទ…",
     dateHint: "ថ្ងៃមុនគេ ឧ. ១៨/០២/២០២៥។",
     notePlaceholder: "នេះសម្រាប់អ្វី?",
+    fieldMerchant: "បង់ទៅ",
+    fieldPaymentMethod: "បង់ដោយ",
+    fieldReceipts: "បង្កាន់ដៃ និងវិក្កយបត្រ",
+    merchantPlaceholder: "ហាង ឬបុគ្គល",
+    noPaymentMethod: "មិនបានកត់",
+    receiptsHint: "រូបភាព ឬវិក្កយបត្រ PDF រហូតដល់ {count}។",
+    addReceipt: "បន្ថែមឯកសារ",
+    removeReceipt: "ដកចេញ",
+    openReceipt: "បើក",
+    fromRecurring: "ដដែលៗ",
+    columnMerchant: "បង់ទៅ",
 
     type: {
       INCOME: "ចំណូល",
@@ -171,6 +196,12 @@ export const km: Dictionary = {
       sourceRequired: "សូមជ្រើសរើសប្រភពដែលលុយនេះមកពី។",
       sourceMissing: "ប្រភពនោះលែងមានទៀតហើយ។",
       noteTooLong: "កំណត់សម្គាល់ត្រូវមិនលើសពី ២៨០ តួអក្សរ។",
+      merchantTooLong: "វែងពេក — ១២០ តួអក្សរ ឬតិចជាង។",
+      paymentMethodInvalid: "សូមជ្រើសរើសមធ្យោបាយបង់ប្រាក់ឲ្យបានត្រឹមត្រូវ។",
+      attachmentType: "សូមភ្ជាប់ JPEG, PNG, WebP ឬ PDF។",
+      attachmentTooLarge: "ឯកសារនោះធំពេក។",
+      attachmentTooMany: "ចំណាយមួយអាចមានឯកសារ {count}។",
+      attachmentFailed: "មិនអាចអានឯកសារនោះបានទេ។",
       deleteFailed: "មិនអាចលុបកំណត់ត្រាបានទេ។",
     },
   },
@@ -222,10 +253,145 @@ export const km: Dictionary = {
     },
   },
 
+  expense: {
+    paymentMethod: {
+      CASH: "សាច់ប្រាក់",
+      CARD: "កាត",
+      BANK: "ផ្ទេរតាមធនាគារ",
+      OTHER: "ផ្សេងៗ",
+    },
+  },
+
+  categories: {
+    title: "ប្រភេទចំណាយ",
+    description:
+      "ប្រភេទផ្ទាល់ខ្លួនរបស់អ្នក ដែលនីមួយៗអាចមានថវិកាប្រចាំខែ។ ការចំណាយត្រូវបានវាស់ធៀបនឹងវានៅលើទំព័រវិភាគ។",
+    count: { one: "{count} ប្រភេទ", other: "{count} ប្រភេទ" },
+    activeCount: { one: "សកម្ម {count}", other: "សកម្ម {count}" },
+    new: "ប្រភេទថ្មី",
+    create: "បន្ថែមប្រភេទ",
+    editTitle: "កែសម្រួលប្រភេទ",
+    emptyTitle: "មិនទាន់មានប្រភេទទេ",
+    emptyBody: "បន្ថែមប្រភេទដែលអ្នកចំណាយប្រាក់ជាក់ស្តែង។",
+
+    columnCategory: "ប្រភេទ",
+    columnBudget: "ថវិកាប្រចាំខែ",
+    columnSpent: "ចំណាយខែនេះ",
+    columnEntries: "កំណត់ត្រា",
+
+    fieldName: "ឈ្មោះ",
+    fieldBudget: "ថវិកាប្រចាំខែ (USD)",
+    fieldTone: "ពណ៌",
+    fieldActive: "សកម្ម",
+    namePlaceholder: "គ្រឿងទេស",
+    budgetHint: "ទុកឲ្យទទេដើម្បីតាមដានដោយគ្មានកំណត់។",
+    activeHint: "ប្រភេទដែលបានទុកចោលនៅរក្សាប្រវត្តិ ប៉ុន្តែលែងត្រូវបានផ្ដល់ជូន។",
+    archived: "បានទុកចោល",
+    noBudget: "គ្មានថវិកា",
+    remaining: "នៅសល់ {amount}",
+    overBy: "លើស {amount}",
+
+    tone: {
+      neutral: "ប្រផេះ",
+      indigo: "ខៀវ",
+      emerald: "បៃតង",
+      amber: "លឿង",
+      rose: "ក្រហម",
+    },
+
+    errors: {
+      nameRequired: "ត្រូវការឈ្មោះ។",
+      nameTooLong: "ឈ្មោះត្រូវមិនលើសពី ៬០ តួអក្សរ។",
+      nameTaken: "អ្នកមានប្រភេទឈ្មោះនេះរួចហើយ។",
+      budgetInvalid: "សូមបញ្ចូលចំនួនដូចជា 400 ឬ 1250.50។",
+      budgetPositive: "ថវិកាត្រូវធំជាងសូន្យ។",
+      toneInvalid: "សូមជ្រើសរើសពណ៌ឲ្យបានត្រឹមត្រូវ។",
+      deleteFailed: "មិនអាចលុបប្រភេទបានទេ។",
+      deleteHasEntries:
+        "ប្រភេទនេះមានចំណាយ។ សូមទុកចោលវាជំនួសវិញ ឬផ្លាស់ប្ដូរចំណាយរបស់វាជាមុនសិន។",
+      missing: "ប្រភេទនោះលែងមានទៀតហើយ។",
+    },
+  },
+
+  recurring: {
+    title: "ចំណាយដដែលៗ",
+    description:
+      "ចំណាយដែលកើតឡើងរាល់ខែ។ វាត្រូវបានកត់ចូលសៀវភៅដោយស្វ័យប្រវត្តិនៅពេលដល់ថ្ងៃកំណត់។",
+    count: { one: "{count} គំរូ", other: "{count} គំរូ" },
+    new: "ចំណាយដដែលៗថ្មី",
+    create: "បន្ថែមចំណាយដដែលៗ",
+    editTitle: "កែសម្រួលចំណាយដដែលៗ",
+    emptyTitle: "មិនទាន់មានអ្វីកើតឡើងដដែលៗទេ",
+    emptyBody:
+      "ថ្លៃជួល សេវាប្រើប្រាស់ ការជាវ — អ្វីៗដែលអ្នកត្រូវវាយបញ្ចូលរាល់ខែ។",
+
+    columnWhat: "អ្វី",
+    columnAmount: "ចំនួនទឹកប្រាក់",
+    columnDay: "ថ្ងៃ",
+    columnLast: "កត់ចុងក្រោយ",
+
+    fieldAmount: "ចំនួនទឹកប្រាក់ (USD)",
+    fieldCategory: "ប្រភេទ",
+    fieldDay: "ថ្ងៃទីក្នុងខែ",
+    fieldStartsOn: "ចាប់ផ្ដើម",
+    fieldActive: "សកម្ម",
+    dayHint: "១ ដល់ ៣១។ ថ្ងៃដែលហួសចុងខែខ្លីនឹងធ្លាក់លើថ្ងៃចុងក្រោយរបស់ខែនោះ។",
+    startsOnHint: "គ្មានអ្វីត្រូវបានកត់សម្រាប់ខែមុនកាលបរិច្ឆេទនេះទេ។",
+    activeHint: "គំរូដែលផ្អាកនឹងឈប់កត់ ប៉ុន្តែនៅរក្សាប្រវត្តិ។",
+    paused: "បានផ្អាក",
+    never: "មិនដែល",
+    onDay: "ថ្ងៃទី {day}",
+    posted: {
+      one: "ចំណាយដដែលៗ {count} ត្រូវបានកត់។",
+      other: "ចំណាយដដែលៗ {count} ត្រូវបានកត់។",
+    },
+
+    errors: {
+      dayInvalid: "សូមជ្រើសរើសថ្ងៃពី ១ ដល់ ៣១។",
+      deleteFailed: "មិនអាចលុបគំរូនេះបានទេ។",
+    },
+  },
+
+  planner: {
+    title: "អ្នករៀបចំផែនការហិរញ្ញវត្ថុ",
+    subtitle: "សាកល្បងលេខមើល។ គ្មានអ្វីនៅទីនេះប្ដូរសៀវភៅកត់ត្រារបស់អ្នកទេ។",
+    intro:
+      "តួលេខចាប់ផ្ដើមមកពី {months} ខែចុងក្រោយរបស់អ្នក។ អ្នកអាចប្ដូរអ្វីក៏បាន។",
+
+    leftover: "នៅសល់",
+    verdictSurplus: "ផែនការនេះនៅសល់ប្រាក់។",
+    verdictBalanced: "ផែនការនេះស្មើគ្នា។",
+    verdictShortfall: "ផែនការនេះចំណាយច្រើនជាងចំណូល។",
+
+    income: "ចំណូលប្រចាំខែ",
+    spending: "ចំណាយ",
+    saving: "ទុកសន្សំ",
+    savingsRate: "{percent}% នៃចំណូល។",
+    noCategories: "សូមបន្ថែមប្រភេទចំណាយដើម្បីរៀបចំផែនការ។",
+    trimHint: "កាត់បន្ថយ {amount} ត្រង់នេះដើម្បីស្មើគ្នា",
+    balance: "ធ្វើឲ្យស្មើ",
+
+    splitHeading: "ចំណុចចាប់ផ្ដើមទូទៅ",
+    splitIntro:
+      "ក្បួន ៥០/៣០/២០ អនុវត្តលើចំណូលរបស់អ្នក។ វាជាការណែនាំទូទៅ មិនមែនជាដំបូន្មានសម្រាប់ស្ថានភាពរបស់អ្នកទេ។",
+    splitNeeds: "ចាំបាច់ (៥០%)",
+    splitWants: "ផ្សេងៗទៀត (៣០%)",
+    splitSavings: "ទុកសន្សំ (២០%)",
+    ceilingOk: "ចំណាយរបស់អ្នកនៅក្រោម {amount}។",
+    ceilingOver: "ចំណាយរបស់អ្នកលើសការណែនាំ {amount}។",
+    floorOk: "អ្នកកំពុងទុកសន្សំយ៉ាងតិច {amount}។",
+    floorUnder: "អ្នកខ្វះ {amount} ធៀបនឹងការណែនាំ។",
+
+    notSaved: "គ្មានអ្វីត្រូវបានរក្សាទុក",
+    reset: "កំណត់ឡើងវិញ",
+  },
+
   settings: {
     title: "ការកំណត់",
     tabProfile: "ប្រវត្តិរូប",
     tabMembers: "សមាជិក",
+    tabCategories: "ប្រភេទ",
+    tabRecurring: "ដដែលៗ",
     tabDevices: "ឧបករណ៍",
 
     profileHeading: "ព័ត៌មានរបស់អ្នក",

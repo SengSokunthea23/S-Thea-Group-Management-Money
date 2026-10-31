@@ -2,23 +2,48 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useOptimistic, useState, useTransition } from "react";
+import { setNavState } from "@/app/preferences-actions";
 import { UserMenu } from "@/components/user-menu";
 import { Wordmark } from "@/components/wordmark";
 import { useT } from "@/components/i18n-provider";
 import type { SessionUser } from "@/lib/auth";
 import type { MessageKey } from "@/lib/i18n/translate";
 import type { Theme } from "@/lib/theme";
+import type { NavState } from "@/lib/nav";
 
-// Labels are catalogue keys, resolved at render — a plain string here would
-// freeze the nav in whatever language it was written in.
-const NAV_ITEMS: { href: string; label: MessageKey; icon: typeof AnalysisIcon }[] =
-  [
-    { href: "/", label: "nav.dashboard", icon: AnalysisIcon },
-    { href: "/entries", label: "nav.entries", icon: LedgerIcon },
-    { href: "/sources", label: "nav.sources", icon: SourcesIcon },
-    { href: "/settings", label: "nav.settings", icon: SettingsIcon },
-  ];
+type NavItem = { href: string; label: MessageKey; icon: typeof AnalysisIcon };
+
+/**
+ * The nav, split by what you are there to do.
+ *
+ * "Money" is the daily work — read the figures, record what happened. "Setup"
+ * is the scaffolding those two depend on: where income comes from, and every
+ * other preference behind Settings.
+ *
+ * Income sources sits in the second group rather than the first because it is
+ * configuration, not activity — it is the income-side twin of expense
+ * categories, which already live under Settings.
+ *
+ * Labels are catalogue keys resolved at render; a plain string here would
+ * freeze the nav in whatever language it was written in.
+ */
+const NAV_GROUPS: { label: MessageKey; items: NavItem[] }[] = [
+  {
+    label: "nav.groupMoney",
+    items: [
+      { href: "/", label: "nav.dashboard", icon: AnalysisIcon },
+      { href: "/entries", label: "nav.entries", icon: LedgerIcon },
+    ],
+  },
+  {
+    label: "nav.groupSetup",
+    items: [
+      { href: "/sources", label: "nav.sources", icon: SourcesIcon },
+      { href: "/settings", label: "nav.settings", icon: SettingsIcon },
+    ],
+  },
+];
 
 // "/" needs an exact match — prefix matching would mark it active everywhere.
 function isActive(pathname: string, href: string): boolean {
@@ -26,31 +51,93 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Nav links, shared by the desktop rail and the mobile drawer. */
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+/**
+ * Nav links, shared by the desktop rail and the mobile drawer.
+ *
+ * When collapsed the labels go but the grouping stays, as a hairline between
+ * the two blocks — losing the words is a fair trade for the width, losing the
+ * structure is not.
+ */
+function SidebarNav({
+  onNavigate,
+  collapsed = false,
+}: {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
   const pathname = usePathname();
   const t = useT();
 
+  // The rail and the drawer are both mounted while the drawer is open, so the
+  // heading ids have to differ per instance or the document carries duplicates
+  // and `aria-labelledby` points at whichever came first.
+  const instanceId = useId();
+
   return (
-    <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-        const active = isActive(pathname, href);
+    <nav
+      className={`flex flex-1 flex-col py-3 ${
+        collapsed ? "gap-3 px-2" : "gap-5 px-3"
+      }`}
+    >
+      {NAV_GROUPS.map((group, index) => {
+        const headingId = `${instanceId}-${group.label}`;
 
         return (
-          <Link
-            key={href}
-            href={href}
-            onClick={onNavigate}
-            aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors ${
-              active
-                ? "bg-hover text-text"
-                : "text-muted hover:bg-hover-soft hover:text-text"
-            }`}
+          <div
+            key={group.label}
+            // Collapsed, a rule stands in for the heading it can no longer fit.
+            className={
+              collapsed && index > 0 ? "border-t border-border pt-3" : undefined
+            }
           >
-            <Icon className="size-4" />
-            {t(label)}
-          </Link>
+            {/* A real heading rather than a styled span: it gives the group a
+                name that assistive technology can announce, which is the whole
+                reason for splitting the list in the first place. Collapsed it
+                is hidden visually but kept in the tree, so the announcement
+                survives a change that is purely about width. */}
+            <h2
+              id={headingId}
+              className={
+                collapsed
+                  ? "sr-only"
+                  : "px-2.5 pb-1.5 text-[11px] font-medium tracking-wide text-muted uppercase"
+              }
+            >
+              {t(group.label)}
+            </h2>
+
+            <ul aria-labelledby={headingId} className="flex flex-col gap-0.5">
+              {group.items.map(({ href, label, icon: Icon }) => {
+                const active = isActive(pathname, href);
+
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      onClick={onNavigate}
+                      aria-current={active ? "page" : undefined}
+                      // Collapsed, the label is the only accessible name left,
+                      // so it moves to the attribute rather than disappearing.
+                      title={collapsed ? t(label) : undefined}
+                      aria-label={collapsed ? t(label) : undefined}
+                      className={`flex items-center rounded-md py-2 text-sm font-medium transition-colors ${
+                        collapsed
+                          ? "justify-center px-2"
+                          : "gap-2.5 px-2.5"
+                      } ${
+                        active
+                          ? "bg-hover text-text"
+                          : "text-muted hover:bg-hover-soft hover:text-text"
+                      }`}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      {collapsed ? null : t(label)}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         );
       })}
     </nav>
@@ -60,13 +147,30 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 export function AppSidebar({
   user,
   theme,
+  navState,
 }: {
   user: SessionUser;
   theme: Theme;
+  navState: NavState;
 }) {
   const pathname = usePathname();
   const t = useT();
   const [open, setOpen] = useState(false);
+
+  // Optimistic so the rail moves on the click rather than after the round trip;
+  // the cookie write is what makes it survive a reload.
+  const [width, setWidth] = useOptimistic(navState);
+  const [, startTransition] = useTransition();
+
+  const collapsed = width === "collapsed";
+
+  function toggleWidth() {
+    const next: NavState = collapsed ? "expanded" : "collapsed";
+    startTransition(async () => {
+      setWidth(next);
+      await setNavState(next);
+    });
+  }
 
   // Navigating closes the drawer, including via browser back/forward, which a
   // click handler alone would miss. Adjusted during render rather than in an
@@ -173,15 +277,70 @@ export function AppSidebar({
         parent from stretching it to the full page height — without that,
         `sticky` has no room to travel and the rail just scrolls away.
       */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-surface md:sticky md:top-0 md:flex md:h-screen md:self-start md:overflow-y-auto">
-        <div className="flex h-16 shrink-0 items-center px-5">
-          <Wordmark />
+      <aside
+        className={`hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-out motion-reduce:transition-none md:sticky md:top-0 md:flex md:h-screen md:self-start md:overflow-y-auto ${
+          collapsed ? "w-16" : "w-60"
+        }`}
+      >
+        <div
+          className={`flex h-16 shrink-0 items-center ${
+            collapsed ? "justify-center px-2" : "px-5"
+          }`}
+        >
+          <Wordmark compact={collapsed} />
         </div>
 
-        <SidebarNav />
-        <UserMenu user={user} theme={theme} />
+        <SidebarNav collapsed={collapsed} />
+
+        {/*
+          The toggle sits above the account, at the boundary between navigating
+          and the rest — and it is the one control here that changes the rail
+          itself rather than where you are.
+        */}
+        <div
+          className={`shrink-0 pb-1 ${collapsed ? "px-2" : "px-3"}`}
+        >
+          <button
+            type="button"
+            onClick={toggleWidth}
+            aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
+            title={collapsed ? t("nav.expand") : t("nav.collapse")}
+            aria-expanded={!collapsed}
+            className={`flex w-full items-center rounded-md py-2 text-sm font-medium text-muted transition-colors hover:bg-hover-soft hover:text-text ${
+              collapsed ? "justify-center px-2" : "gap-2.5 px-2.5"
+            }`}
+          >
+            <CollapseIcon
+              className={`size-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
+                collapsed ? "rotate-180" : ""
+              }`}
+            />
+            {collapsed ? null : t("nav.collapse")}
+          </button>
+        </div>
+
+        <UserMenu user={user} theme={theme} compact={collapsed} />
       </aside>
     </>
+  );
+}
+
+/** Chevrons pointing at the edge the rail will move toward. */
+function CollapseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M11.5 6.5 8 10l3.5 3.5" />
+      <path d="M15.5 3.5v13" />
+    </svg>
   );
 }
 
